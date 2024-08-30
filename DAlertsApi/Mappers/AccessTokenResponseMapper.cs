@@ -1,5 +1,6 @@
 ﻿using DAlertsApi.DTOs;
-using DAlertsApi.Models.Settings; 
+using DAlertsApi.Models.Auth.AuthCode;
+using DAlertsApi.Models.Settings;
 
 namespace DAlertsApi.Mappers
 {

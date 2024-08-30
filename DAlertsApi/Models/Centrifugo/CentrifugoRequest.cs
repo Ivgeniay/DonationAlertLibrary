@@ -2,12 +2,12 @@
 {
     public class CentrifugoRequest
     {
-        public StartMessageParams @params { get; set; } = new StartMessageParams();
-        public int id { get; set; }
+        public StartMessageParams Params { get; set; } = new StartMessageParams();
+        public int Id { get; set; }
     }
 
     public class StartMessageParams
     {
-        public string token { get; set; }
+        public string Token { get; set; }
     }
 }

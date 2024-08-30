@@ -1,11 +1,12 @@
-﻿using DAlertsApi;
-using DAlertsApi.Auth;
-using DAlertsApi.Logger;
-using DAlertsApi.Models.ApiV1;
+﻿using DAlertsApi.Models.Auth.AuthCode;
 using DAlertsApi.Models.Centrifugo;
 using DAlertsApi.Models.Settings;
-using DAlertsApi.Sockets;
+using DAlertsApi.Models.ApiV1;
 using DAlertsApi.SystemFunc;
+using DAlertsApi.Sockets;
+using DAlertsApi.Logger;
+using DAlertsApi.Auth;
+using DAlertsApi;
 
 namespace ConsoleClient
 {
@@ -57,7 +58,8 @@ namespace ConsoleClient
             simpleServer.Start(); 
 
             logger.Log("Opening browser...");
-            var idProcess = OpenProcess.Open(alertsAuth.GetAuthorizationUrl(credentials.Scope),
+            int idProcess = OpenProcess.Open(
+                alertsAuth.GetAuthorizationUrl(),
                 logger); 
             
             await Task.Run(() =>
@@ -69,7 +71,7 @@ namespace ConsoleClient
             simpleServer.Dispose();
             OpenProcess.Close(idProcess, logger);
 
-            AccessTokenRequest accessTokenRequest = new()
+            AccessTokenCodeRequest accessTokenRequest = new()
             {
                 Client_id = credentials.ClientId,
                 Client_secret = credentials.ClientSecret,
@@ -82,23 +84,19 @@ namespace ConsoleClient
 
             ApiV1 apiV1 = new(logger, accesTokenResponse.Access_token);
             UserWrap? userWrap = await apiV1.GetUserProfileAsync();
-             
 
             CentrifugoClient centrifugoClient = new(logger);
             bool isConnected = await centrifugoClient.ConnectAsync(userWrap.Data.Socket_connection_token, userWrap.Data.Id);
             if (isConnected)
             {
-                // Проверка ответа
                 CentrifugoResponse? response = await centrifugoClient.ReceiveClientIdAsync();
                 if (response != null && !string.IsNullOrEmpty(response.Result?.Client))
                 {
                     logger?.Log($"Successfully authenticated with Client ID: {response.Result.Client}");
                 }
             }
-            else
-            {
-                logger.Log("Failed to establish a connection with Centrifugo.", LogLevel.Error);
-            } 
+            else logger.Log("Failed to establish a connection with Centrifugo.", LogLevel.Error);
+            
 
             Console.ReadKey();
         }

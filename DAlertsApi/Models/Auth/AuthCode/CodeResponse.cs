@@ -1,4 +1,6 @@
-﻿namespace DAlertsApi.Models.Settings
+﻿using Newtonsoft.Json;
+
+namespace DAlertsApi.Models.Auth.AuthCode
 {
     public class CodeModel
     {
@@ -6,7 +8,7 @@
 
         override public string ToString()
         {
-            return $"Code: {Code}";
+            return JsonConvert.SerializeObject(this);
         }
     }
 }

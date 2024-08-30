@@ -39,15 +39,15 @@ namespace DAlertsApi.Sockets
                     await _webSocket.ConnectAsync(new Uri(Links.CentrifugoSocketEndpoint), CancellationToken.None);
                     _logger?.Log($"Connected to Centrifugo WebSocket server on attempt {attempt}.");
 
-                    var message = new
+                    CentrifugoRequest centrifugoRequest = new()
                     {
-                        @params = new
+                        Params = new()
                         {
-                            token = token
+                            Token = token
                         },
-                        id = id
+                        Id = id
                     };
-                    string jsonMessage = JsonConvert.SerializeObject(message);
+                    string jsonMessage = JsonConvert.SerializeObject(centrifugoRequest);
                     _logger?.Log($"Sending authentication message: {jsonMessage}");
                     var bytes = Encoding.UTF8.GetBytes(jsonMessage);
 

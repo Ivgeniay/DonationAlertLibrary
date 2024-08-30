@@ -1,6 +1,7 @@
 ﻿using DAlertsApi.Logger;
-using DAlertsApi.Models.Settings; 
-using System.Net; 
+using DAlertsApi.Models.Auth.AuthCode;
+using DAlertsApi.Models.Auth.Inplicit;
+using System.Net;
 using System.Web;
 
 namespace DAlertsApi.SystemFunc
@@ -52,7 +53,34 @@ namespace DAlertsApi.SystemFunc
                     context.Response.StatusCode = (int)HttpStatusCode.OK;
                     context.Response.Close();
 
-                    logger?.Log($"Code received and processed {codeModel}"); 
+                    logger?.Log($"Code received and processed: {codeModel}"); 
+                    return codeModel;
+                }
+                catch (Exception ex)
+                {
+                    logger?.Log(ex.Message);
+                }
+            } 
+            return codeModel;
+        }
+        public async Task<AccessTokenImplicitResponse> AwaitInplicitToken()
+        {
+            AccessTokenImplicitResponse codeModel = new();
+            while (isRunning)
+            {
+                try
+                {
+                    HttpListenerContext context = await listener.GetContextAsync();
+                    HttpListenerRequest request = context.Request;
+                     
+                    var query = HttpUtility.ParseQueryString(request.Url.Query);
+                    var queryDict = query.AllKeys.ToDictionary(k => k?.ToLower(), k => query[k]);
+
+                    codeModel.Access_token = queryDict.GetValueOrDefault("access_token", string.Empty);
+                    context.Response.StatusCode = (int)HttpStatusCode.OK;
+                    context.Response.Close();
+
+                    logger?.Log($"AccessToken received and processed: {codeModel}");
                     return codeModel;
                 }
                 catch (Exception ex)
@@ -63,6 +91,7 @@ namespace DAlertsApi.SystemFunc
 
             return codeModel;
         }
+
         public void Dispose()
         {
             isRunning = false;

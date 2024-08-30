@@ -2,6 +2,7 @@
 using DAlertsApi.Logger;
 using DAlertsApi.Mappers;
 using DAlertsApi.Models;
+using DAlertsApi.Models.Auth.AuthCode;
 using DAlertsApi.Models.Settings;
 using DAlertsApi.SystemFunc;
 using Newtonsoft.Json;
@@ -28,15 +29,19 @@ namespace DAlertsApi.Auth
             this.logger = logger;
         }
 
-        public string GetAuthorizationUrl(params ScopeType[] scopes)
+        public string GetAuthorizationUrl()
         {
             var link = $"{Links.AuthorizationEndpoint}?client_id={credentials.ClientId}&redirect_uri={StaticMethods.GetUrl(credentials.Redirect, credentials.Port)}&response_type=code";
-            if (scopes != null && scopes.Length > 0)
-                link += "&scope=" + Scope.GetScopeToQueryString(scopes);
-
+            if (credentials.Scope.Length > 0) link += "&scope=" + Scope.GetScopeToQueryString(credentials.Scope);
             return link;
         }
-        public async Task<AccessTokenResponse?> GetAccessToken(AccessTokenRequest request)
+        public string GetAuthorizationUrl(AuthorizationCodeRequest authCodeRequest)
+        {
+            var link = $"{Links.AuthorizationEndpoint}?client_id={authCodeRequest.Client_id}&redirect_uri={authCodeRequest.Redirect_uri}&response_type={authCodeRequest.Response_type}";
+            if (authCodeRequest.Scope.Length > 0) link += authCodeRequest.Scope;
+            return link;
+        }
+        public async Task<AccessTokenResponse?> GetAccessToken(AccessTokenCodeRequest request)
         {
             using (var client = new HttpClient())
             {
@@ -68,7 +73,6 @@ namespace DAlertsApi.Auth
                 return response;
             }
         }
-
         private async Task<string> GetContent(object request, HttpClient client)
         {
             IEnumerable<KeyValuePair<string, string>> dic = StaticMethods.FromClassToDictionary(request);

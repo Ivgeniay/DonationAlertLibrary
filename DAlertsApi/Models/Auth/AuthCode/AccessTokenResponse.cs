@@ -1,11 +1,12 @@
-﻿
-namespace DAlertsApi.Models.Settings
+﻿using Newtonsoft.Json;
+
+namespace DAlertsApi.Models.Auth.AuthCode
 {
     public class AccessTokenResponse
     {
         public string Token_type { get; set; } = string.Empty;
-        public int Expires_in { get; set;}
-        public string Access_token { get; set;} = string.Empty;
+        public int Expires_in { get; set; }
+        public string Access_token { get; set; } = string.Empty;
         public string Refresh_token { get; set; } = string.Empty;
 
         public object Clone()
@@ -19,13 +20,9 @@ namespace DAlertsApi.Models.Settings
             };
         }
 
-        public override string ToString()
+        override public string ToString()
         {
-            return "AccessTokenResponse:\n" +
-                   "Token_type: " + Token_type + "\n" +
-                   "Expires_in: " + Expires_in + "\n" +
-                   "Access_token: " + Access_token + "\n" +
-                   "Refresh_token: " + Refresh_token + "\n";
+            return JsonConvert.SerializeObject(this);
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿using DAlertsApi.Models.Settings; 
+﻿using DAlertsApi.Models.Auth.AuthCode;
+using DAlertsApi.Models.Settings;
+using Newtonsoft.Json;
 
 namespace DAlertsApi.DTOs
 {
@@ -22,15 +24,9 @@ namespace DAlertsApi.DTOs
             };
         }
 
-        public override string ToString()
+        override public string ToString()
         {
-            return "AccessTokenResponse:\n" +
-                   "Token_type: " + Token_type + "\n" +
-                   "Expires_in: " + Expires_in + "\n" +
-                   "Access_token: " + Access_token + "\n" +
-                   "Refresh_token: " + Refresh_token + "\n" +
-                   "CreatedDate: " + CreatedDate +
-                   "ExpiredDate: " + ExperedDate;
+            return JsonConvert.SerializeObject(this);
         }
     }
 }
