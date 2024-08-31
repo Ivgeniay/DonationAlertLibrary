@@ -1,16 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DAlertsApi.Models.Pagination
+﻿namespace DAlertsApi.Models.Pagination
 {
+    /// <summary>
+    /// First:      links to the first page
+    /// Last:       links to the last page
+    /// Prev:       links to the previous page
+    /// Next:       links to the next page
+    /// </summary>
     public class PaginationLinks
     {
-        public string First { get; set;} = string.Empty;             // Ссылка на первую страницу
-        public string Last { get; set; } = string.Empty;             // Ссылка на последнюю страницу
-        public string Prev { get; set; } = string.Empty;             // Ссылка на предыдущую страницу
-        public string Next { get; set; } = string.Empty;             // Ссылка на следующую страницу
+        public string First { get; set;} = string.Empty;           
+        public string Last { get; set; } = string.Empty;           
+        public string Prev { get; set; } = string.Empty;           
+        public string Next { get; set; } = string.Empty;           
     }
 }

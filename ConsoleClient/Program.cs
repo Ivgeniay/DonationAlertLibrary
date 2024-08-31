@@ -6,7 +6,9 @@ using DAlertsApi.SystemFunc;
 using DAlertsApi.Sockets;
 using DAlertsApi.Logger;
 using DAlertsApi.Auth;
-using DAlertsApi;
+using DAlertsApi.ApiV1lib;
+using System.Threading.Channels;
+using Newtonsoft.Json.Linq;
 
 namespace ConsoleClient
 {
@@ -46,12 +48,13 @@ namespace ConsoleClient
                 clientSecret: "i416YiL9yVOuCYcxI8CpM6swcZXFK5Tsj5z3i5sX", 
                 redirect: "http://localhost",
                 port: "3180",
-                ScopeType.OauthDonationIndex,
                 ScopeType.OauthDonationSubscribe,
-                ScopeType.OauthPollSubscribe,
                 ScopeType.OauthGoalSubscribe,
-                ScopeType.OauthUserShow,
-                ScopeType.OauthCustomAlertStore);
+                ScopeType.OauthPollSubscribe,
+                ScopeType.OauthCustomAlertStore,
+                ScopeType.OauthDonationIndex,
+                ScopeType.OauthUserShow
+                );
 
             DonationAlertsGrandTypeAuth alertsAuth = new(credentials, logger);
             SimpleServer simpleServer = new(credentials.Redirect, credentials.Port, logger);
@@ -93,6 +96,35 @@ namespace ConsoleClient
                 if (response != null && !string.IsNullOrEmpty(response.Result?.Client))
                 {
                     logger?.Log($"Successfully authenticated with Client ID: {response.Result.Client}");
+
+                    string clientId = response.Result.Client;
+                    string[] channels = Channels.GetChannels(userWrap.Data.Id, ChannelsType.Allerts, ChannelsType.Goals, ChannelsType.Pools); 
+                    //string[] channels = Channels.GetChannels(userWrap.Data.Id, ChannelsType.Allerts); 
+                    SubscriptionRequest request = new()
+                    {
+                        Client = clientId,
+                        Channels = channels.ToList()
+                    };
+                    SubscriptionResponse response1 = await centrifugoClient.SubscribeToChannelsAsync(request, accesTokenResponse.Access_token);
+                    if (response1 != null)
+                    {
+                        logger?.Log($"Successfully subscribed to channels: {string.Join(", ", response1.Channels)}");
+
+                        int messageId = 1;
+                        int methodId = 1;
+                        foreach (var channel in response1.Channels)
+                        {
+                            CancellationToken cancellationToken = CancellationToken.None;
+                            bool isConnectedChannel = await centrifugoClient.ConnectToChannelAsync(channel.Channel, channel.Token, methodId, ++messageId, cancellationToken);
+                            await Task.Delay(2000);
+                            
+                            if(isConnectedChannel)
+                            {  }
+                        }
+
+                        logger.Log("Listening for messages...");
+                        await centrifugoClient.ListenForMessagesAsync(CancellationToken.None);
+                    }
                 }
             }
             else logger.Log("Failed to establish a connection with Centrifugo.", LogLevel.Error);

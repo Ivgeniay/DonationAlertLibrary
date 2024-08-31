@@ -1,14 +1,23 @@
 ﻿namespace DAlertsApi.Models.Pagination
 {
+    /// <summary>
+    /// CurrentPage:        current index page
+    /// From:               first element index
+    /// LastPage:           last element index
+    /// Path:               current path
+    /// PerPage:            count elements per page
+    /// To:                 last element index
+    /// Total:              total elements count
+    /// </summary>
     public class PaginationInfo
     {
-        public int CurrentPage { get; set; }          // Индекс текущей страницы
-        public int From { get; set; }                 // Индекс первого элемента
-        public int LastPage { get; set; }             // Общее количество страниц
-        public string Path { get; set; } = string.Empty; // Текущий путь
-        public int PerPage { get; set; }              // Количество элементов на странице
-        public int To { get; set; }                   // Индекс последнего элемента
-        public int Total { get; set; }                // Общее количество элементов
+        public int CurrentPage { get; set; }               
+        public int From { get; set; }                      
+        public int LastPage { get; set; }                  
+        public string Path { get; set; } = string.Empty;   
+        public int PerPage { get; set; }                   
+        public int To { get; set; }                        
+        public int Total { get; set; }                     
 
     }
 }

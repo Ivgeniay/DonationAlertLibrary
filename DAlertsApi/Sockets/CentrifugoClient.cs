@@ -1,7 +1,10 @@
 ﻿using DAlertsApi.Logger;
 using DAlertsApi.Models;
 using DAlertsApi.Models.Centrifugo;
+using DAlertsApi.Models.Errors;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Dynamic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Channels;
@@ -114,32 +117,23 @@ namespace DAlertsApi.Sockets
         /// <param name="uuidv4_client_id"></param>
         /// <param name="channels"></param>
         /// <returns></returns>
-        public async Task<SubscriptionResponse?> SubscribeToChannelsAsync(string uuidv4_client_id, params string[] channels)
+        public async Task<SubscriptionResponse?> SubscribeToChannelsAsync(SubscriptionRequest request, string bearerToken)
         {
             try
             { 
                 using (var httpClient = new HttpClient())
-                { 
-                    SubscriptionRequest request = new()
-                    {
-                        Client = uuidv4_client_id,
-                        Channels = channels.ToList()
-                    };
-                    // Формируем параметры запроса
-                    var queryParams = new Dictionary<string, string>
-                    {
-                        { "client", request.Client },
-                        { "channels", string.Join(",", request.Channels) }
-                    };
-
-                    var content = new FormUrlEncodedContent(queryParams);  
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
+                    string jsonContent = JsonConvert.SerializeObject(request);
+                    jsonContent = jsonContent.ToLower();
+                    _logger.Log("Sending subscription request: " + jsonContent);
+                    var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");   
                     var response = await httpClient.PostAsync(Links.CentrifugoPrivateSubscribe, content);
                     response.EnsureSuccessStatusCode();
 
-                    var responseJson = await response.Content.ReadAsStringAsync();
+                    string responseJson = await response.Content.ReadAsStringAsync();
                     _logger?.Log("Received subscription response: " + responseJson);
-
-                    // Десериализация ответа
+                     
                     SubscriptionResponse? subscriptionResponse = JsonConvert.DeserializeObject<SubscriptionResponse>(responseJson);
                     return subscriptionResponse;
                 }
@@ -150,35 +144,147 @@ namespace DAlertsApi.Sockets
                 return null;
             }
         }
-
-
-        /// <summary>
-        /// Subscribe to private channels.
-        /// </summary>
-        /// <param name="channels"></param>
-        /// <param name="tokens"></param>
-        /// <returns></returns>
-        public async Task SubscribeToPrivateChannelsAsync(string[] channels, string[] tokens)
+        public async Task<bool> ConnectToChannelAsync(string channel, string channelToken, int methodId, int messageId, CancellationToken cancellationToken)
         {
-            for (int i = 0; i < channels.Length; i++)
+            try
             {
-                var message = new
+                var request = new
                 {
                     @params = new
                     {
-                        channel = channels[i],
-                        token = tokens[i]
+                        channel = channel,
+                        token = channelToken
                     },
-                    method = 1,
-                    id = i + 2 // ID для каждого сообщения должно быть уникальным
+                    method = methodId,
+                    id = messageId
                 };
 
-                string jsonMessage = JsonConvert.SerializeObject(message);
-                var bytes = Encoding.UTF8.GetBytes(jsonMessage);
+                // Сериализуем сообщение в JSON
+                var requestJson = JsonConvert.SerializeObject(request);
+                _logger?.Log("Sending message to connect to channel: " + requestJson);
 
-                await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
-                _logger?.Log($"Subscribed to channel: {channels[i]}");
+                // Преобразуем JSON в массив байтов
+                var bytes = Encoding.UTF8.GetBytes(requestJson);
+                var buffer = new ArraySegment<byte>(bytes);
+
+                // Отправляем сообщение через WebSocket
+                await _webSocket.SendAsync(buffer, WebSocketMessageType.Text, true, cancellationToken);
+
+                // Получаем ответ от сервера
+                var responseBuffer = new byte[1024 * 4];
+                var firstResponse = await _webSocket.ReceiveAsync(new ArraySegment<byte>(responseBuffer), CancellationToken.None); 
+                var firstResponseJson = Encoding.UTF8.GetString(responseBuffer, 0, firstResponse.Count);
+                CoonectToChannelFirstMessage? response = JsonConvert.DeserializeObject<CoonectToChannelFirstMessage>(firstResponseJson); 
+                _logger?.Log("Received first response from channel connection: " + firstResponseJson);
+
+                var secondResponse = await _webSocket.ReceiveAsync(new ArraySegment<byte>(responseBuffer), CancellationToken.None); 
+                var secondResponseJson = Encoding.UTF8.GetString(responseBuffer, 0, secondResponse.Count);
+                ConnectChannelResponse? response2 = JsonConvert.DeserializeObject<ConnectChannelResponse>(secondResponseJson);
+
+                if (response == null)
+                {
+                    var error = JsonConvert.DeserializeObject<ConnectChannelResponseError>(firstResponseJson);
+                    _logger?.Log("Failed to connect to channel: " + channel + ". Error: " + error, LogLevel.Error);
+                } 
+                _logger?.Log("Received second response from channel connection: " + secondResponseJson);
+
+                // Проверяем успешное подключение
+                if (response2.result.type == 1)
+                {
+                    _logger?.Log("Successfully connected to channel: " + channel);
+                    return true;
+                }
+                else
+                {
+                    _logger?.Log("Failed to connect to channel: " + channel, LogLevel.Error);
+                    return false;
+                }
             }
+            catch (Exception ex)
+            {
+                _logger?.Log("Error while connecting to channel: " + ex.Message, LogLevel.Error);
+                return false;
+            }
+        }
+        
+        
+        public async Task ListenForMessagesAsync(CancellationToken cancellationToken)
+        {
+            var buffer = new byte[1024 * 4];
+
+            while (_webSocket.State == WebSocketState.Open)
+            {
+                try
+                {
+                    var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        _logger?.Log("WebSocket connection closed by the server.");
+                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, cancellationToken);
+                        break;
+                    }
+                    else if (result.MessageType != WebSocketMessageType.Text)
+                    {
+                        _logger?.Log("Received non-text message, ignoring.");
+                        continue;
+                    }
+                    else
+                    {
+                        var responseJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        _logger?.Log("Received message: " + responseJson); 
+                        HandleMessage(responseJson); 
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Log("Error while receiving WebSocket message: " + ex.Message, LogLevel.Error);
+                }
+            }
+        }
+        private void HandleMessage(string responseJson)
+        {
+            try
+            { 
+                var message = JsonConvert.DeserializeObject<WebSocketMessage>(responseJson);
+
+                if (message == null)
+                {
+                    _logger?.Log("Received null message, ignoring.");
+                    return;
+                }
+
+                // Логика обработки сообщения
+                switch (message.Result.Type)
+                {
+                    case 1:
+                        _logger?.Log($"Connected to channel: {message.Result.Channel}");
+                        break;
+                    default:
+                        _logger?.Log($"Received message of type {message.Result.Type} on channel {message.Result.Channel}");
+                        break;
+                } 
+            }
+            catch (Exception ex)
+            {
+                _logger?.Log("Error while handling WebSocket message: " + ex.Message, LogLevel.Error);
+            }
+        }
+
+        public class WebSocketMessage
+        {
+            public int Id { get; set; }
+            public WebSocketResult Result { get; set; } = new WebSocketResult();
+
+            override public string ToString()
+            {
+                return JsonConvert.SerializeObject(this);
+            }
+        }
+        public class WebSocketResult
+        {
+            public int Type { get; set; }
+            public string Channel { get; set; } = string.Empty;
+            public dynamic Data { get; set; } = new ExpandoObject(); // В зависимости от структуры данных, можно заменить на конкретный тип
         }
     }
 }
