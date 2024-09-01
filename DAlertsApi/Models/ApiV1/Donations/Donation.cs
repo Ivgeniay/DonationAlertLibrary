@@ -1,6 +1,7 @@
 ﻿using DAlertsApi.Models.Data;
 using DAlertsApi.Models.Pagination;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace DAlertsApi.Models.ApiV1.Donations
 {
@@ -35,8 +36,9 @@ namespace DAlertsApi.Models.ApiV1.Donations
         [JsonProperty("message")]
         public string Message { get; set; } = string.Empty;
         [JsonProperty("amount")]
-        public float Amount { get; set; }
+        public decimal Amount { get; set; }
         [JsonProperty("currency")]
+        [JsonConverter(typeof(StringEnumConverter))]
         public CurrenciesType Currency { get; set; }
         [JsonProperty("is_shown")]
         public int Is_shown { get; set; }

@@ -24,6 +24,7 @@ namespace DAlertsApi
         public ApiDesctopSampleFacade(Credentials credentials) 
         {
             this.credentials = credentials; 
+            centrifugoClient = new();
         }
 
         public async void Start()
@@ -32,17 +33,17 @@ namespace DAlertsApi
             SimpleServer simpleServer = new(credentials.Redirect, credentials.Port, logger);
             simpleServer.Start();
 
-            logger.Log("Opening browser...");
+            logger?.Log("Opening browser...");
             int idProcess = OpenProcess.Open(
                 alertsAuth.GetAuthorizationUrl(),
                 logger);
 
             await Task.Run(() =>
-            { logger.Log("Waiting for code..."); Thread.Sleep(1500); });
+            { logger?.Log("Waiting for code..."); Thread.Sleep(1500); });
 
             Task<CodeModel> serverCodeAwaiter = simpleServer.AwaitCode();
             CodeModel codeModel = await serverCodeAwaiter;
-            logger.Log(codeModel.ToString() ?? "null");
+            logger?.Log(codeModel.ToString() ?? "null");
             simpleServer.Dispose();
             OpenProcess.Close(idProcess, logger);
 
@@ -53,9 +54,9 @@ namespace DAlertsApi
                 Code = codeModel.Code,
                 Redirect_uri = StaticMethods.GetUrl(credentials.Redirect, credentials.Port)
             };
-            logger.Log(accessTokenRequest.ToString() ?? "null");
+            logger?.Log(accessTokenRequest.ToString() ?? "null");
             AccessTokenResponse? accesTokenResponse = await alertsAuth.GetAccessTokenAsync(accessTokenRequest);
-            logger.Log(accesTokenResponse?.ToString() ?? "null");
+            logger?.Log(accesTokenResponse?.ToString() ?? "null");
 
             ApiV1 apiV1 = new(logger, accesTokenResponse.Access_token);
             UserWrap? userWrap = await apiV1.GetUserProfileAsync();
@@ -90,12 +91,12 @@ namespace DAlertsApi
                             if (isConnectedChannel) { }
                         }
 
-                        logger.Log("Listening for messages...");
+                        logger?.Log("Listening for messages...");
                         await centrifugoClient.ListenForMessagesAsync(CancellationToken.None);
                     }
                 }
             }
-            else logger.Log("Failed to establish a connection with Centrifugo.", LogLevel.Error);
+            else logger?.Log("Failed to establish a connection with Centrifugo.", LogLevel.Error);
         }
     }
 }

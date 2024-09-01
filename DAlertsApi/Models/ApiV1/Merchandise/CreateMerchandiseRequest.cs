@@ -1,4 +1,6 @@
 ﻿using DAlertsApi.Models.Data;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using System.Xml.Linq;
 
@@ -47,12 +49,13 @@ namespace DAlertsApi.Models.ApiV1.Merchandise
          public Dictionary<string, string> Title { get; set;} = new();
          public int Is_active { get; set;} 
          public int Is_percentage { get; set;}
+         [JsonConverter(typeof(StringEnumConverter))]
          public CurrenciesType Currency { get; set;}
          public decimal Price_user { get; set;} 
          public decimal Price_service { get; set;} 
          public string Url { get; set;}  = string.Empty;
          public string Img_url { get; set;}  = string.Empty;
          public int End_at_ts { get; set; } 
-         public string signature { get; set; }= string.Empty;
+         public string Signature { get; set; }= string.Empty;
     }
 }

@@ -58,9 +58,9 @@ namespace DAlertsApi.Models.Centrifugo
         [JsonProperty("title")]
         public string Title { get; set; }
         [JsonProperty("amount_value")]
-        public float Amount_value { get; set; }
+        public decimal Amount_value { get; set; }
         [JsonProperty("amount_percent")]
-        public float Amount_percent { get; set; }
+        public decimal Amount_percent { get; set; }
         [JsonProperty("is_winner")]
         public int Is_winner { get; set; }
     }

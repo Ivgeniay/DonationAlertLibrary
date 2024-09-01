@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace DAlertsApi.Models.Data
 {
@@ -60,5 +57,38 @@ namespace DAlertsApi.Models.Data
         tr_TR,
         uk_UA,
         zh_CN,
+    }
+
+    public class LocalesTypeDictionaryConverter : JsonConverter<Dictionary<LocalesType, string>>
+    {
+        public override Dictionary<LocalesType, string> ReadJson(JsonReader reader, Type objectType, Dictionary<LocalesType, string>? existingValue, bool hasExistingValue, JsonSerializer serializer)
+        {
+            var result = new Dictionary<LocalesType, string>();
+            var jObject = JObject.Load(reader);
+
+            foreach (var property in jObject.Properties())
+            {
+                if (Enum.TryParse(typeof(LocalesType), property.Name, out var key))
+                {
+                    result[(LocalesType)key] = property.Value.ToString();
+                }
+            }
+
+            return result;
+        }
+
+        public override void WriteJson(JsonWriter writer, Dictionary<LocalesType, string>? value, JsonSerializer serializer)
+        {
+            writer.WriteStartObject();
+            if (value != null)
+            {
+                foreach (var kvp in value)
+                {
+                    writer.WritePropertyName(kvp.Key.ToString());
+                    writer.WriteValue(kvp.Value);
+                }
+            }
+            writer.WriteEndObject();
+        }
     }
 }

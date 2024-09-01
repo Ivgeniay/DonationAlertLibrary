@@ -21,8 +21,12 @@ namespace DAlertsApi.Sockets
         public int RetryDelayMilliseconds { get; set; } = 2000;
 
         private readonly ClientWebSocket _webSocket;
-        private readonly ILogger _logger;
+        private readonly ILogger? _logger;
 
+        public CentrifugoClient()
+        {
+            _webSocket = new ClientWebSocket(); 
+        }
         public CentrifugoClient(ILogger logger)
         {
             this._logger = logger;
@@ -91,24 +95,24 @@ namespace DAlertsApi.Sockets
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    _logger.Log($"WebSocket closed with status {result.CloseStatus} and description {result.CloseStatusDescription}", LogLevel.Error);
+                    _logger?.Log($"WebSocket closed with status {result.CloseStatus} and description {result.CloseStatusDescription}", LogLevel.Error);
                     return null;
                 }
 
                 var responseJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
                 if (string.IsNullOrWhiteSpace(responseJson))
                 {
-                    _logger.Log("Received empty response. Possible error in the communication.", LogLevel.Error);
+                    _logger?.Log("Received empty response. Possible error in the communication.", LogLevel.Error);
                     return null;
                 }
 
                 CentrifugoResponse? response = JsonConvert.DeserializeObject<CentrifugoResponse>(responseJson);
-                _logger.Log("Deserialized response: " + responseJson);
+                _logger?.Log("Deserialized response: " + responseJson);
                 return response;
             }
             catch (Exception ex)
             {
-                _logger.Log("Error receiving WebSocket message: " + ex.Message, LogLevel.Error);
+                _logger?.Log("Error receiving WebSocket message: " + ex.Message, LogLevel.Error);
                 return null;
             }
         }
@@ -128,7 +132,7 @@ namespace DAlertsApi.Sockets
                     httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
                     string jsonContent = JsonConvert.SerializeObject(request);
                     jsonContent = jsonContent.ToLower();
-                    _logger.Log("Sending subscription request: " + jsonContent);
+                    _logger?.Log("Sending subscription request: " + jsonContent);
                     var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
                     var response = await httpClient.PostAsync(Links.CentrifugoPrivateSubscribe, content);
                     response.EnsureSuccessStatusCode();
@@ -231,7 +235,7 @@ namespace DAlertsApi.Sockets
                     else
                     {
                         var responseJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        _logger.Log("Received WebSocket message: " + responseJson);
+                        _logger?.Log("Received WebSocket message: " + responseJson);
                         var wsMessage = JsonConvert.DeserializeObject<WebSocketMessage>(responseJson);
                         if (wsMessage == null)
                         {

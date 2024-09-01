@@ -1,5 +1,6 @@
 ﻿using DAlertsApi.Models.Data;
-using Newtonsoft.Json; 
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace DAlertsApi.Models.Centrifugo
 {
@@ -29,13 +30,14 @@ namespace DAlertsApi.Models.Centrifugo
         [JsonProperty("title")]
         public string Title {get; set;} = string.Empty;
         [JsonProperty("currency")]
+        [JsonConverter(typeof(StringEnumConverter))]
         public CurrenciesType Currency {get; set;}
         [JsonProperty("start_amount")]
-        public float Start_amount {get; set;}
+        public decimal Start_amount {get; set;}
         [JsonProperty("raised_amount")]
-        public float Raised_amount {get; set;}
+        public decimal Raised_amount {get; set;}
         [JsonProperty("goal_amount")]
-        public float Goal_amount {get; set;}
+        public decimal Goal_amount {get; set;}
         [JsonProperty("started_at")]
         public string Started_at {get; set;} = string.Empty;
         [JsonProperty("expires_at")]

@@ -8,6 +8,7 @@
         public static string DonationAlertsListEndpoint { get; } = "https://www.donationalerts.com/api/v1/alerts/donations";
         public static string CustomAlertsEndpoint { get; } = "https://www.donationalerts.com/api/v1/custom_alert";
         public static string MerchandiseEndpoint { get; } = "https://www.donationalerts.com/api/v1/merchandise"; 
+        public static string MerchandiseSaleEndpoint { get; } = "https://www.donationalerts.com/api/v1/merchandise_sale"; 
         public static string CentrifugoSocketEndpoint { get; } = "wss://centrifugo.donationalerts.com/connection/websocket";
         public static string CentrifugoPrivateSubscribe { get; } = "https://www.donationalerts.com/api/v1/centrifuge/subscribe";
     }

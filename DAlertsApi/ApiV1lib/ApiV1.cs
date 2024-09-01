@@ -1,17 +1,27 @@
-﻿using System.Net.Http.Headers;
-using DAlertsApi.Logger;
-using Newtonsoft.Json;
-using DAlertsApi.Models;
-using DAlertsApi.Models.ApiV1.Users;
-using DAlertsApi.Models.ApiV1.Alerts;
+﻿using DAlertsApi.Models.ApiV1.Merchandise;
 using DAlertsApi.Models.ApiV1.Donations;
-using DAlertsApi.Models.ApiV1.Merchandise;
+using DAlertsApi.Models.ApiV1.Alerts;
+using DAlertsApi.Models.ApiV1.Users;
+using System.Net.Http.Headers;
+using System.Globalization; 
+using DAlertsApi.Logger;
+using DAlertsApi.Models;
+using Newtonsoft.Json;
 
 namespace DAlertsApi.ApiV1lib
 {
     /// <summary>
     /// ApiV1 class is used to interact with the Donation Alerts API v1.
     /// https://www.donationalerts.com/apidoc#api_v1
+    /// 
+    /// Some of the APIs require request SIGNATURE. 
+    ///
+    /// The request signature is a SHA256 hashed string formed from a alphabetically sorted values of request parameters(with every value interpreted as a string) and appended API client secret key to the end.
+    /// For example, if request parameters contain: 
+    /// foo=xyz&bar=abc
+    /// 
+    /// Then the signature must be generated as following: 
+    /// SHA256(abc + xyz + <API client secret> ) 
     /// </summary>
     public class ApiV1 : IDisposable
     {
@@ -103,11 +113,11 @@ namespace DAlertsApi.ApiV1lib
                 return null;
             }
         }
-        public async Task<CreateMerchandiseResponse?> CreateMerchandiseAsync(CreateMerchandiseRequest request, string token)
+        public async Task<CreateMerchandiseResponseWrap?> CreateMerchandiseAsync(CreateMerchandiseRequest request, string bearerToken)
         {
             using (var client = new HttpClient())
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
 
                 using (var formContent = new MultipartFormDataContent())
                 {
@@ -121,14 +131,14 @@ namespace DAlertsApi.ApiV1lib
                     formContent.Add(new StringContent(request.Price_service.ToString()), "price_service");
                     formContent.Add(new StringContent(request.Url), "url");
                     formContent.Add(new StringContent(request.Img_url), "img_url");
-                    formContent.Add(new StringContent(request.signature), "signature");
+                    formContent.Add(new StringContent(request.Signature), "signature");
 
                     var response = await client.PostAsync(Links.MerchandiseEndpoint, formContent);
 
                     if (response.IsSuccessStatusCode)
                     {
                         string content = await response.Content.ReadAsStringAsync();
-                        return JsonConvert.DeserializeObject<CreateMerchandiseResponse>(content);
+                        return JsonConvert.DeserializeObject<CreateMerchandiseResponseWrap>(content);
                     }
                     else
                     {
@@ -137,6 +147,99 @@ namespace DAlertsApi.ApiV1lib
                     }
                 }
             }
+        }
+        public async Task<UpdateMerchandiseResponseWrap?> UpdateMerchandiseAsync(UpdateMerchandiseRequest request, int merchandiseId, string bearerToken)
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+            var titleContent = request.Title.Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value));
+            var content = new FormUrlEncodedContent(titleContent.Concat(new[]
+            { 
+                new KeyValuePair<string, string>("is_active", request.IsActive.ToString()),
+                new KeyValuePair<string, string>("is_percentage", request.IsPercentage.ToString()),
+                new KeyValuePair<string, string>("currency", request.Currency.ToString()),
+                new KeyValuePair<string, string>("price_user", request.PriceUser.ToString(CultureInfo.InvariantCulture)),
+                new KeyValuePair<string, string>("price_service", request.PriceService.ToString(CultureInfo.InvariantCulture)),
+                new KeyValuePair<string, string>("url", request.Url),
+                new KeyValuePair<string, string>("img_url", request.ImgUrl),
+                new KeyValuePair<string, string>("signature", request.Signature)
+            }));
+
+            var response = await client.PutAsync($"{Links.MerchandiseEndpoint}/{merchandiseId}", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
+                return null;
+            }
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            return JsonConvert.DeserializeObject<UpdateMerchandiseResponseWrap>(responseContent);
+        }
+        public async Task<CreateOrUpdateMerchandiseResponseWrap?> CreateOrUpdateMerchandiseAsync(CreateOrUpdateMerchandiseRequest request, string merchantIdentifier, string merchandiseIdentifier, string bearerToken)
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+            var titleContent = request.Title.Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value)); 
+            var content = new FormUrlEncodedContent(titleContent.Concat(new[]
+            { 
+                new KeyValuePair<string, string>("is_active", request.IsActive.ToString()),
+                new KeyValuePair<string, string>("is_percentage", request.IsPercentage.ToString()),
+                new KeyValuePair<string, string>("currency", request.Currency.ToString()),
+                new KeyValuePair<string, string>("price_user", request.PriceUser.ToString(CultureInfo.InvariantCulture)),
+                new KeyValuePair<string, string>("price_service", request.PriceService.ToString(CultureInfo.InvariantCulture)),
+                new KeyValuePair<string, string>("url", request.Url),
+                new KeyValuePair<string, string>("img_url", request.ImgUrl),
+                new KeyValuePair<string, string>("end_at_ts", request.EndAtTs.ToString()),
+                new KeyValuePair<string, string>("signature", request.Signature)
+            }));
+
+            var response = await client.PutAsync($"{Links.MerchandiseEndpoint}/{merchantIdentifier}/{merchandiseIdentifier}", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
+                return null;
+            }
+
+            var jsonString = await response.Content.ReadAsStringAsync();
+            var result = JsonConvert.DeserializeObject<CreateOrUpdateMerchandiseResponseWrap>(jsonString);
+
+            return result;
+        }
+        public async Task<CreateMerchandiseSaleNotificationResponseWrap?> CreateMerchandiseSaleNotificationAsync(CreateMerchandiseSaleNotificationRequest request, string bearerToken)
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken); 
+
+            var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("user_id", request.UserId.ToString()),
+                new KeyValuePair<string, string>("external_id", request.ExternalId),
+                new KeyValuePair<string, string>("merchant_identifier", request.MerchantIdentifier),
+                new KeyValuePair<string, string>("merchandise_identifier", request.MerchandiseIdentifier),
+                new KeyValuePair<string, string>("amount", request.Amount.ToString(CultureInfo.InvariantCulture)),
+                new KeyValuePair<string, string>("currency", request.Currency.ToString()),
+                new KeyValuePair<string, string>("bought_amount", request.BoughtAmount.ToString()),
+                new KeyValuePair<string, string>("username", request.Username),
+                new KeyValuePair<string, string>("message", request.Message),
+                new KeyValuePair<string, string>("signature", request.Signature)
+            });
+
+            var response = await client.PostAsync(Links.MerchandiseSaleEndpoint, content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
+                return null;
+            }
+
+            var jsonString = await response.Content.ReadAsStringAsync();
+            var result = JsonConvert.DeserializeObject<CreateMerchandiseSaleNotificationResponseWrap>(jsonString);
+
+            return result;
         }
 
         public void Dispose()

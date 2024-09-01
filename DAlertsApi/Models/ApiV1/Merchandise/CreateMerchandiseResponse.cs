@@ -1,5 +1,6 @@
 ﻿using DAlertsApi.Models.Data;
-using Newtonsoft.Json; 
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace DAlertsApi.Models.ApiV1.Merchandise
 {
@@ -18,6 +19,11 @@ namespace DAlertsApi.Models.ApiV1.Merchandise
     /// img_url:        URL to the merchandise's image. Or null if image is not set
     /// end_at:         Date and time indicating when the merchandise becomes inactive(YYYY-MM-DD HH.MM.SS formatted). Or null if end date is not set
     /// </summary>
+    public class CreateMerchandiseResponseWrap
+    {
+        [JsonProperty("data")]
+        public CreateMerchandiseResponse Data { get; set; } = new CreateMerchandiseResponse();
+    }
     public class CreateMerchandiseResponse
     {
         [JsonProperty("id")]
@@ -27,12 +33,14 @@ namespace DAlertsApi.Models.ApiV1.Merchandise
         [JsonProperty("identifier")]
         public string identifier { get; set; } = string.Empty;
         [JsonProperty("title")]
-        public MerchLocalizations Title { get; set; } = new();
+        [JsonConverter(typeof(LocalesTypeDictionaryConverter))]
+        public Dictionary<LocalesType, string> Title { get; set; } = new();
         [JsonProperty("is_active")]
         public int Is_active { get; set; }
         [JsonProperty("is_percentage")]
         public int Is_percentage { get; set; }
         [JsonProperty("currency")]
+        [JsonConverter(typeof(StringEnumConverter))]
         public CurrenciesType Currency { get; set; }
         [JsonProperty("price_user")]
         public decimal Price_user { get; set; }
@@ -43,7 +51,9 @@ namespace DAlertsApi.Models.ApiV1.Merchandise
         [JsonProperty("img_url")]
         public string? Img_url { get; set; }
         [JsonProperty("end_at")]
-        public string? End_at { get; set; }       
+        public string? End_at { get; set; }
+
+        public override string ToString() => JsonConvert.SerializeObject(this);
     }
 
     public class Merchant
@@ -53,47 +63,5 @@ namespace DAlertsApi.Models.ApiV1.Merchandise
         [JsonProperty("name")]
         public string Name { get; set; } = string.Empty;
     }
-    public class MerchLocalizations
-    {
-        [JsonProperty("be_BY")]
-        public string be_BY { get; set; } = string.Empty;
-        [JsonProperty("de_DE")]
-        public string de_DE { get; set; } = string.Empty;
-        [JsonProperty("en_US")]
-        public string en_US { get; set; } = string.Empty;
-        [JsonProperty("es_ES")]
-        public string es_ES { get; set; } = string.Empty;
-        [JsonProperty("es_US")]
-        public string es_US { get; set; } = string.Empty;
-        [JsonProperty("et_EE")]
-        public string et_EE { get; set; } = string.Empty;
-        [JsonProperty("fr_FR")]
-        public string fr_FR { get; set; } = string.Empty;
-        [JsonProperty("he_HE")]
-        public string he_HE { get; set; } = string.Empty;
-        [JsonProperty("it_IT")]
-        public string it_IT { get; set; } = string.Empty;
-        [JsonProperty("ka_GE")]
-        public string ka_GE { get; set; } = string.Empty;
-        [JsonProperty("kk_KZ")]
-        public string kk_KZ { get; set; } = string.Empty;
-        [JsonProperty("ko_KR")]
-        public string ko_KR { get; set; } = string.Empty;
-        [JsonProperty("lv_LV")]
-        public string lv_LV { get; set; } = string.Empty;
-        [JsonProperty("pl_PL")]
-        public string pl_PL { get; set; } = string.Empty;
-        [JsonProperty("pt_BR")]
-        public string pt_BR { get; set; } = string.Empty;
-        [JsonProperty("ru_RU")]
-        public string ru_RU { get; set; } = string.Empty;
-        [JsonProperty("sv_SE")]
-        public string sv_SE { get; set; } = string.Empty;
-        [JsonProperty("tr_TR")]
-        public string tr_TR { get; set; } = string.Empty;
-        [JsonProperty("uk_UA")]
-        public string uk_UA { get; set; } = string.Empty;
-        [JsonProperty("zh_CN")]
-        public string zh_CN { get; set; } = string.Empty;
-    }
+   
 }
