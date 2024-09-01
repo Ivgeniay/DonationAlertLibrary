@@ -6,11 +6,25 @@ using DAlertsApi.Models.Auth.AuthCode;
 using DAlertsApi.Models.Settings;
 using DAlertsApi.SystemFunc;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using static System.Net.Mime.MediaTypeNames;
+using System.Net;
+using DAlertsApi.Models.Auth.AuthCode.Refresh;
 
 namespace DAlertsApi.Auth
 {
     public delegate void AccessTokenGetted(AccessTokenResponseDTO response);
     public delegate void RefreshTokenGetted(RefreshTokenRequest request, RefreshTokenResponse response);
+
+    /// <summary>
+    /// https://www.donationalerts.com/apidoc#authorization__authorization_code
+    /// The authorization code grant type used because it is optimized for server-side applications, where source code is not publicly exposed, and client secret confidentiality can be maintained. This is a redirection-based flow, which means that the application must be capable of interacting with the user-agent and receiving API authorization codes that are routed through the user-agent.
+    ///
+    /// 1. Application registration (https://www.donationalerts.com/application/clients);
+    /// 2. Authorization request (redirect user to GetAuthorizationUrl());
+    /// 3. Getting access code (getting code from response query)
+    /// 4. Authorization code to access token exchange (getting access token from GetAccessTokenAsync(AccessTokenCodeRequest request))
+    /// </summary>
     public class DonationAlertsGrandTypeAuth
     {
         public AccessTokenGetted OnAccessTokenGetted;
@@ -41,11 +55,11 @@ namespace DAlertsApi.Auth
             if (authCodeRequest.Scope.Length > 0) link += authCodeRequest.Scope;
             return link;
         }
-        public async Task<AccessTokenResponse?> GetAccessToken(AccessTokenCodeRequest request)
+        public async Task<AccessTokenResponse?> GetAccessTokenAsync(AccessTokenCodeRequest request)
         {
             using (var client = new HttpClient())
             {
-                string content = await GetContent(request, client);
+                string content = await GetContentAsync(request, client);
                 if (content == null) return null;
 
                 AccessTokenResponse? tokenResponse = JsonConvert.DeserializeObject<AccessTokenResponse>(content);
@@ -57,11 +71,11 @@ namespace DAlertsApi.Auth
                 return tokenResponse;
             }
         }
-        public async Task<RefreshTokenResponse?> GetRefreshToken(RefreshTokenRequest request)
+        public async Task<RefreshTokenResponse?> GetRefreshTokenAsync(RefreshTokenRequest request)
         {
             using (var client = new HttpClient())
             {
-                string content = await GetContent(request, client);
+                string content = await GetContentAsync(request, client);
                 if (content == null) return null;
 
                 RefreshTokenResponse? response = JsonConvert.DeserializeObject<RefreshTokenResponse>(content);
@@ -73,7 +87,7 @@ namespace DAlertsApi.Auth
                 return response;
             }
         }
-        private async Task<string> GetContent(object request, HttpClient client)
+        private async Task<string> GetContentAsync(object request, HttpClient client)
         {
             IEnumerable<KeyValuePair<string, string>> dic = StaticMethods.FromClassToDictionary(request);
             var requestContent = new FormUrlEncodedContent(dic);

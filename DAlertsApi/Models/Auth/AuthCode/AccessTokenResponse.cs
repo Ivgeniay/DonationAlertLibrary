@@ -1,7 +1,14 @@
-﻿using Newtonsoft.Json;
+﻿using Newtonsoft.Json; 
 
 namespace DAlertsApi.Models.Auth.AuthCode
 {
+    /// <summary>
+    /// token_type:         Token type
+    /// expires_in:         Token expiration timestamp
+    /// access_token:       Access token
+    /// refresh_token:      Refresh token
+
+    /// </summary>
     public class AccessTokenResponse
     {
         public string Token_type { get; set; } = string.Empty;

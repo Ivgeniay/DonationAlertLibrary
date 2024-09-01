@@ -1,23 +1,27 @@
-﻿using DAlertsApi.Logger;
-using DAlertsApi.Models;
-using DAlertsApi.Models.Centrifugo;
+﻿using DAlertsApi.Models.Centrifugo;
 using DAlertsApi.Models.Errors;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System.Dynamic;
 using System.Net.WebSockets;
+using DAlertsApi.Logger;
+using DAlertsApi.Models;
+using Newtonsoft.Json;
+using System.Dynamic;
 using System.Text;
-using System.Threading.Channels;
+using DAlertsApi.Models.ApiV1.Donations;
 
 namespace DAlertsApi.Sockets
 {
     public class CentrifugoClient
     {
-        public int MaxRetryAttempts {get; set;} = 3;
-        public int RetryDelayMilliseconds { get; set; } = 2000; 
+        public event Action<WebSocketMessage> OnMessageReceived; 
+        public event Action<GoalsUpdateWrapper> OnGoalUpdated;
+        public event Action<GoalInfo> OnGoalLaunchUpdate; 
+        public event Action<PollDataWrapper> OnPollUpdated;
+        public event Action<Donation> OnDonationReceived;
+        public int MaxRetryAttempts { get; set; } = 3;
+        public int RetryDelayMilliseconds { get; set; } = 2000;
 
         private readonly ClientWebSocket _webSocket;
-        private readonly ILogger _logger; 
+        private readonly ILogger _logger;
 
         public CentrifugoClient(ILogger logger)
         {
@@ -74,8 +78,6 @@ namespace DAlertsApi.Sockets
             _logger?.Log("Failed to connect to Centrifugo after maximum retry attempts.", LogLevel.Error);
             return false; // Подключение не удалось
         }
-
-
         /// <summary>
         /// Second step of connection to Centrifugo WebSocket server. Receives Client ID from the server.
         /// </summary>
@@ -120,20 +122,20 @@ namespace DAlertsApi.Sockets
         public async Task<SubscriptionResponse?> SubscribeToChannelsAsync(SubscriptionRequest request, string bearerToken)
         {
             try
-            { 
+            {
                 using (var httpClient = new HttpClient())
                 {
                     httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
                     string jsonContent = JsonConvert.SerializeObject(request);
                     jsonContent = jsonContent.ToLower();
                     _logger.Log("Sending subscription request: " + jsonContent);
-                    var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");   
+                    var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
                     var response = await httpClient.PostAsync(Links.CentrifugoPrivateSubscribe, content);
                     response.EnsureSuccessStatusCode();
 
                     string responseJson = await response.Content.ReadAsStringAsync();
                     _logger?.Log("Received subscription response: " + responseJson);
-                     
+
                     SubscriptionResponse? subscriptionResponse = JsonConvert.DeserializeObject<SubscriptionResponse>(responseJson);
                     return subscriptionResponse;
                 }
@@ -172,12 +174,12 @@ namespace DAlertsApi.Sockets
 
                 // Получаем ответ от сервера
                 var responseBuffer = new byte[1024 * 4];
-                var firstResponse = await _webSocket.ReceiveAsync(new ArraySegment<byte>(responseBuffer), CancellationToken.None); 
+                var firstResponse = await _webSocket.ReceiveAsync(new ArraySegment<byte>(responseBuffer), CancellationToken.None);
                 var firstResponseJson = Encoding.UTF8.GetString(responseBuffer, 0, firstResponse.Count);
-                CoonectToChannelFirstMessage? response = JsonConvert.DeserializeObject<CoonectToChannelFirstMessage>(firstResponseJson); 
+                CoonectToChannelFirstMessage? response = JsonConvert.DeserializeObject<CoonectToChannelFirstMessage>(firstResponseJson);
                 _logger?.Log("Received first response from channel connection: " + firstResponseJson);
 
-                var secondResponse = await _webSocket.ReceiveAsync(new ArraySegment<byte>(responseBuffer), CancellationToken.None); 
+                var secondResponse = await _webSocket.ReceiveAsync(new ArraySegment<byte>(responseBuffer), CancellationToken.None);
                 var secondResponseJson = Encoding.UTF8.GetString(responseBuffer, 0, secondResponse.Count);
                 ConnectChannelResponse? response2 = JsonConvert.DeserializeObject<ConnectChannelResponse>(secondResponseJson);
 
@@ -185,7 +187,7 @@ namespace DAlertsApi.Sockets
                 {
                     var error = JsonConvert.DeserializeObject<ConnectChannelResponseError>(firstResponseJson);
                     _logger?.Log("Failed to connect to channel: " + channel + ". Error: " + error, LogLevel.Error);
-                } 
+                }
                 _logger?.Log("Received second response from channel connection: " + secondResponseJson);
 
                 // Проверяем успешное подключение
@@ -206,8 +208,6 @@ namespace DAlertsApi.Sockets
                 return false;
             }
         }
-        
-        
         public async Task ListenForMessagesAsync(CancellationToken cancellationToken)
         {
             var buffer = new byte[1024 * 4];
@@ -231,8 +231,17 @@ namespace DAlertsApi.Sockets
                     else
                     {
                         var responseJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        _logger?.Log("Received message: " + responseJson); 
-                        HandleMessage(responseJson); 
+                        _logger.Log("Received WebSocket message: " + responseJson);
+                        var wsMessage = JsonConvert.DeserializeObject<WebSocketMessage>(responseJson);
+                        if (wsMessage == null)
+                        {
+                            _logger?.Log("Received null message, ignoring.");
+                            continue;
+                        }
+                        else
+                        {
+                            HandleMessage(wsMessage);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -241,50 +250,53 @@ namespace DAlertsApi.Sockets
                 }
             }
         }
-        private void HandleMessage(string responseJson)
+        private void HandleMessage(WebSocketMessage wsMessage)
         {
+            OnMessageReceived?.Invoke(wsMessage);
+
             try
-            { 
-                var message = JsonConvert.DeserializeObject<WebSocketMessage>(responseJson);
-
-                if (message == null)
-                {
-                    _logger?.Log("Received null message, ignoring.");
-                    return;
+            {  
+                if (wsMessage.Result.Channel.Contains("goals:"))
+                {  
+                    dynamic data = wsMessage.Result.Data;
+                    string dataJson = JsonConvert.SerializeObject(data);
+                    if (dataJson.Contains("\"info\":{\"user\":\""))
+                    {
+                        dataJson = JsonConvert.SerializeObject(data.info);
+                        GoalInfo info = JsonConvert.DeserializeObject<GoalInfo>(dataJson);
+                        if (wsMessage.Result.Type == 1) info.IsLauched = true;
+                        else info.IsLauched = false;
+                        OnGoalLaunchUpdate?.Invoke(info);
+                        _logger?.Log($"Received goal info message: {info}");
+                    }
+                    else if (dataJson.Contains("\"seq\":"))
+                    {
+                        dataJson = JsonConvert.SerializeObject(data);
+                        GoalsUpdateWrapper desData = JsonConvert.DeserializeObject<GoalsUpdateWrapper>(dataJson);
+                        OnGoalUpdated?.Invoke(desData);
+                        _logger?.Log($"Received goal message: {desData}");
+                    } 
                 }
-
-                // Логика обработки сообщения
-                switch (message.Result.Type)
+                else if (wsMessage.Result.Channel.Contains("polls:"))
                 {
-                    case 1:
-                        _logger?.Log($"Connected to channel: {message.Result.Channel}");
-                        break;
-                    default:
-                        _logger?.Log($"Received message of type {message.Result.Type} on channel {message.Result.Channel}");
-                        break;
+                    dynamic data = wsMessage.Result.Data;
+                    string dataJson = JsonConvert.SerializeObject(data);
+                    var desData = JsonConvert.DeserializeObject<PollDataWrapper>(dataJson);
+                    OnPollUpdated?.Invoke(desData); 
+                    _logger?.Log($"Received pool update message: {desData}");
+                }
+                else if (wsMessage.Result.Channel.Contains("alerts:"))
+                {
+                    //Donation donation = JsonConvert.DeserializeObject<Donation>(wsMessage.Result.Data.ToString());
+                    Donation donation = JsonConvert.DeserializeObject<Donation>(wsMessage.ToString());
+                    _logger?.Log($"Received donation message: {donation}");
                 } 
             }
             catch (Exception ex)
             {
                 _logger?.Log("Error while handling WebSocket message: " + ex.Message, LogLevel.Error);
             }
-        }
-
-        public class WebSocketMessage
-        {
-            public int Id { get; set; }
-            public WebSocketResult Result { get; set; } = new WebSocketResult();
-
-            override public string ToString()
-            {
-                return JsonConvert.SerializeObject(this);
-            }
-        }
-        public class WebSocketResult
-        {
-            public int Type { get; set; }
-            public string Channel { get; set; } = string.Empty;
-            public dynamic Data { get; set; } = new ExpandoObject(); // В зависимости от структуры данных, можно заменить на конкретный тип
-        }
+        } 
     }
+    
 }

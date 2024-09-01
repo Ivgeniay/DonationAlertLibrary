@@ -3,7 +3,7 @@
     public interface ILogger
     {
         public void Log(string message, LogLevel logLevel = LogLevel.Info);
-        public void LogAction(Action<string, LogLevel> action);
+        public ILogger LogAction(Action<string, LogLevel> action);
     }
 
     public enum LogLevel

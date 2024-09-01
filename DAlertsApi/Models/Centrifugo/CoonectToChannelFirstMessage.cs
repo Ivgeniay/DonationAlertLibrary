@@ -7,10 +7,8 @@ namespace DAlertsApi.Models.Centrifugo
         public int Id { get; set; }
         public Result Result { get; set; } = new Result();
 
-        override public string ToString()
-        {
-            return JsonConvert.SerializeObject(this);
-        }
+        override public string ToString() => JsonConvert.SerializeObject(this);
+        
     }
     public class Result
     {

@@ -1,21 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Formats.Asn1.AsnWriter;
-
-namespace DAlertsApi.Models.Settings
+﻿namespace DAlertsApi.Models.Settings
 {
     /// <summary>
-    /// Scope : Description
-    /// oauth-user-show : Obtain profile data
-    /// oauth-donation-subscribe : Subscribe to new donation alerts
-    /// oauth-donation-index : View donations
-    /// oauth-custom_alert-store : Create custom alerts
-    /// oauth-goal-subscribe : Subscribe to donation goals updates
-    /// oauth-poll-subscribe : Subscribe to polls updates
+    /// ApiV1 scops:
+    /// 
+    /// oauth-user-show:                Obtain profile data (Model: User, UserWrap)
+    /// oauth-donation-index:           View donations (Models: Donation, DonationWrap)
+    /// oauth-custom_alert-store:       Create custom alerts (Models: CustomAlertsResponse, CustomAlertsRequest)
+    /// 
+    /// Centrifugo scopes:
+    /// 
+    /// oauth-donation-subscribe:       Subscribe to new donation alerts
+    /// oauth-goal-subscribe:           Subscribe to donation goals updates
+    /// oauth-poll-subscribe:           Subscribe to polls updates
     /// </summary>
     public static class Scope
     {

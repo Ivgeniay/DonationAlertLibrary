@@ -1,5 +1,11 @@
 ﻿namespace DAlertsApi.Sockets
 {
+
+    /// <summary>
+    /// DonationAlerts API offers the variety of Centrifugo channels for receiving real-time event notifications.
+    /// https://www.donationalerts.com/apidoc#api_v1__centrifugo_channels
+    /// Each message sent to a channel carries the reason attribute in addition to the original resource. This attribute describes the event that occured upon message dispatch.
+    /// </summary>
     public static class Channels
     {
         private static string allerts = "$alerts:donation_<user_id>";

@@ -1,4 +1,6 @@
-﻿namespace DAlertsApi.Models.Centrifugo
+﻿using Newtonsoft.Json;
+
+namespace DAlertsApi.Models.Centrifugo
 {
     public class CentrifugoResponse
     {
@@ -16,7 +18,7 @@
 
         public override string ToString()
         {
-            return "Id: " + Id + ", Client: " + Result.Client + ", Version: " + Result.Version;
+            return JsonConvert.SerializeObject(this);
         }
     }
 }

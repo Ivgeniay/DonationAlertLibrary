@@ -2,6 +2,9 @@
 
 namespace DAlertsApi.Models.Centrifugo
 {
+    /// <summary>
+    /// Centrifugo connection response
+    /// </summary>
     public class ConnectChannelResponse
     {
         public Result result { get; set; } = new Result();

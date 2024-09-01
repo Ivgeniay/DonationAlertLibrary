@@ -11,9 +11,10 @@ namespace ConsoleClient
             action?.Invoke(message, logLevel);
         }
 
-        public void LogAction(Action<string, LogLevel> action)
+        public ILogger LogAction(Action<string, LogLevel> action)
         {
             this.action = action;
+            return this;
         }
     }
     
