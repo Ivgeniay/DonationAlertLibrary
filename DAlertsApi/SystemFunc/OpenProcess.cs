@@ -8,7 +8,7 @@ namespace DAlertsApi.SystemFunc
     {
         private static readonly Dictionary<int, Process> processes = new();
 
-        public static int Open(string url, ILogger logger = null)
+        public static int Open(string url, ILogger? logger = null)
         {
             try
             {
@@ -25,7 +25,7 @@ namespace DAlertsApi.SystemFunc
             }
         }
 
-        public static void Close(int processId, ILogger logger = null)
+        public static void Close(int processId, ILogger? logger = null)
         {
             if (processes.ContainsKey(processId))
             {

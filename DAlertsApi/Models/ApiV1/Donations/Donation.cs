@@ -62,5 +62,7 @@ namespace DAlertsApi.Models.ApiV1.Donations
         public PaginationLinks Links { get; set; } = new();
         [JsonProperty("meta")]
         public PaginationInfo Meta { get; set; } = new();
+
+        public override string ToString() => JsonConvert.SerializeObject(this);
     }
 }

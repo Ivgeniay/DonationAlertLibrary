@@ -7,24 +7,24 @@ using DAlertsApi.ApiV1lib;
 using DAlertsApi.Sockets;
 using DAlertsApi.Logger;
 using DAlertsApi.Auth;
+using DAlertsApi.Models.ApiV1.Donations;
 
 namespace DAlertsApi
 {
     public class ApiDesctopSampleFacade
     {
-        public CentrifugoClient centrifugoClient;
+        public CentrifugoClient CentrifugoClient;
         private readonly Credentials credentials;
         private readonly ILogger? logger;
-        public ApiDesctopSampleFacade(Credentials credentials, ILogger logger) : this(credentials)
+        public ApiDesctopSampleFacade(Credentials credentials, ILogger? logger) : this(credentials)
         {
-            this.logger = logger;
-            centrifugoClient = new(logger);
+            this.logger = logger; 
         }
 
         public ApiDesctopSampleFacade(Credentials credentials) 
         {
             this.credentials = credentials; 
-            centrifugoClient = new();
+            CentrifugoClient = new();
         }
 
         public async void Start()
@@ -41,9 +41,9 @@ namespace DAlertsApi
             await Task.Run(() =>
             { logger?.Log("Waiting for code..."); Thread.Sleep(1500); });
 
-            Task<CodeModel> serverCodeAwaiter = simpleServer.AwaitCode();
-            CodeModel codeModel = await serverCodeAwaiter;
-            logger?.Log(codeModel.ToString() ?? "null");
+            Task<CodeModel?> serverCodeAwaiter = simpleServer.AwaitCode();
+            CodeModel? codeModel = await serverCodeAwaiter;
+            logger?.Log(codeModel?.ToString() ?? "null");
             simpleServer.Dispose();
             OpenProcess.Close(idProcess, logger);
 
@@ -56,16 +56,29 @@ namespace DAlertsApi
             };
             logger?.Log(accessTokenRequest.ToString() ?? "null");
             AccessTokenResponse? accesTokenResponse = await alertsAuth.GetAccessTokenAsync(accessTokenRequest);
+            if (accesTokenResponse == null)
+            {
+                logger?.Log("Failed to get access token.", LogLevel.Error);
+                return;
+            }
             logger?.Log(accesTokenResponse?.ToString() ?? "null");
 
-            ApiV1 apiV1 = new(logger, accesTokenResponse.Access_token);
+            ApiV1 apiV1 = new(accesTokenResponse.Access_token, logger);
             UserWrap? userWrap = await apiV1.GetUserProfileAsync();
+            if (userWrap == null)
+            {
+                logger?.Log("Failed to get user profile.", LogLevel.Error);
+                return;
+            }
+            DonationWrap? donation = await apiV1.GetDonationsAsync();
+            logger?.Log(userWrap?.ToString() ?? "User is null");
+            logger?.Log(donation?.ToString() ?? "Donation is null");
 
-            if (centrifugoClient == null) centrifugoClient = new(logger);
-            bool isConnected = await centrifugoClient.ConnectAsync(userWrap.Data.Socket_connection_token, userWrap.Data.Id);
+            if (CentrifugoClient == null) CentrifugoClient = new(logger);
+            bool isConnected = await CentrifugoClient.ConnectAsync(userWrap.Data.Socket_connection_token, userWrap.Data.Id);
             if (isConnected)
             {
-                CentrifugoResponse? response = await centrifugoClient.ReceiveClientIdAsync();
+                CentrifugoResponse? response = await CentrifugoClient.ReceiveClientIdAsync();
                 if (response != null && !string.IsNullOrEmpty(response.Result?.Client))
                 {
                     logger?.Log($"Successfully authenticated with Client ID: {response.Result.Client}");
@@ -77,7 +90,7 @@ namespace DAlertsApi
                         Client = clientId,
                         Channels = channels.ToList()
                     };
-                    SubscriptionResponse response1 = await centrifugoClient.SubscribeToChannelsAsync(request, accesTokenResponse.Access_token);
+                    SubscriptionResponse? response1 = await CentrifugoClient.SubscribeToChannelsAsync(request, accesTokenResponse.Access_token);
                     if (response1 != null)
                     {
                         logger?.Log($"Successfully subscribed to channels: {string.Join(", ", response1.Channels)}");
@@ -87,12 +100,12 @@ namespace DAlertsApi
                         foreach (var channel in response1.Channels)
                         {
                             CancellationToken cancellationToken = CancellationToken.None;
-                            bool isConnectedChannel = await centrifugoClient.ConnectToChannelAsync(channel.Channel, channel.Token, methodId, ++messageId, cancellationToken);
+                            bool isConnectedChannel = await CentrifugoClient.ConnectToChannelAsync(channel.Channel, channel.Token, methodId, ++messageId, cancellationToken);
                             if (isConnectedChannel) { }
                         }
 
                         logger?.Log("Listening for messages...");
-                        await centrifugoClient.ListenForMessagesAsync(CancellationToken.None);
+                        await CentrifugoClient.ListenForMessagesAsync(CancellationToken.None);
                     }
                 }
             }

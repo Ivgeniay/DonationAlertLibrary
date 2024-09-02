@@ -1,15 +1,12 @@
-﻿using DAlertsApi.DTOs;
-using DAlertsApi.Logger;
-using DAlertsApi.Mappers;
-using DAlertsApi.Models;
+﻿using DAlertsApi.Models.Auth.AuthCode.Refresh;
 using DAlertsApi.Models.Auth.AuthCode;
 using DAlertsApi.Models.Settings;
 using DAlertsApi.SystemFunc;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using static System.Net.Mime.MediaTypeNames;
-using System.Net;
-using DAlertsApi.Models.Auth.AuthCode.Refresh;
+using DAlertsApi.Mappers;
+using DAlertsApi.Logger;
+using DAlertsApi.Models;
+using Newtonsoft.Json; 
+using DAlertsApi.DTOs;
 
 namespace DAlertsApi.Auth
 {
@@ -25,25 +22,15 @@ namespace DAlertsApi.Auth
     /// 3. Getting access code (getting code from response query)
     /// 4. Authorization code to access token exchange (getting access token from GetAccessTokenAsync(AccessTokenCodeRequest request))
     /// </summary>
-    public class DonationAlertsGrandTypeAuth
+    public class DonationAlertsGrandTypeAuth : DonationAlertsAuthBase
     {
         public AccessTokenGetted OnAccessTokenGetted;
-        public RefreshTokenGetted OnRefreshTokenGetted;
+        public RefreshTokenGetted OnRefreshTokenGetted; 
 
-        private readonly Credentials credentials;
-        private readonly ILogger logger;
+        public DonationAlertsGrandTypeAuth(Credentials credentials) : base(credentials) { }
+        public DonationAlertsGrandTypeAuth(Credentials credentials, ILogger? logger) : this(credentials) { } 
 
-        public DonationAlertsGrandTypeAuth(Credentials credentials)
-        {
-            this.credentials = credentials;
-        }
-        public DonationAlertsGrandTypeAuth(Credentials credentials, ILogger logger)
-        {
-            this.credentials = credentials;
-            this.logger = logger;
-        }
-
-        public string GetAuthorizationUrl()
+        public override string GetAuthorizationUrl()
         {
             var link = $"{Links.AuthorizationEndpoint}?client_id={credentials.ClientId}&redirect_uri={StaticMethods.GetUrl(credentials.Redirect, credentials.Port)}&response_type=code";
             if (credentials.Scope.Length > 0) link += "&scope=" + Scope.GetScopeToQueryString(credentials.Scope);
@@ -59,7 +46,7 @@ namespace DAlertsApi.Auth
         {
             using (var client = new HttpClient())
             {
-                string content = await GetContentAsync(request, client);
+                string? content = await GetContentAsync(request, client);
                 if (content == null) return null;
 
                 AccessTokenResponse? tokenResponse = JsonConvert.DeserializeObject<AccessTokenResponse>(content);
@@ -75,7 +62,7 @@ namespace DAlertsApi.Auth
         {
             using (var client = new HttpClient())
             {
-                string content = await GetContentAsync(request, client);
+                string? content = await GetContentAsync(request, client);
                 if (content == null) return null;
 
                 RefreshTokenResponse? response = JsonConvert.DeserializeObject<RefreshTokenResponse>(content);
@@ -87,7 +74,7 @@ namespace DAlertsApi.Auth
                 return response;
             }
         }
-        private async Task<string> GetContentAsync(object request, HttpClient client)
+        private async Task<string?> GetContentAsync(object request, HttpClient client)
         {
             IEnumerable<KeyValuePair<string, string>> dic = StaticMethods.FromClassToDictionary(request);
             var requestContent = new FormUrlEncodedContent(dic);

@@ -26,10 +26,11 @@ namespace DAlertsApi.ApiV1lib
     public class ApiV1 : IDisposable
     {
         private readonly HttpClient _httpClient;
-        private readonly ILogger logger;
+        private readonly ILogger? logger;
 
-        public ApiV1(ILogger logger, string token)
+        public ApiV1(string token, ILogger? logger)
         {
+            this.logger = logger;
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
@@ -38,8 +39,7 @@ namespace DAlertsApi.ApiV1lib
         {
             try
             {
-                var response = await _httpClient.GetAsync(Links.UserOauthEndpoint);
-
+                var response = await _httpClient.GetAsync(Links.UserOauthEndpoint); 
                 if (response.IsSuccessStatusCode)
                 {
                     string content = await response.Content.ReadAsStringAsync();
@@ -51,16 +51,14 @@ namespace DAlertsApi.ApiV1lib
             catch (Exception ex)
             {
                 logger?.Log($"Error while getting user profile: {ex.Message}", LogLevel.Error);
-            }
-
+            } 
             return null;
         }
         public async Task<DonationWrap?> GetDonationsAsync()
         {
             try
             {
-                var response = await _httpClient.GetAsync(Links.DonationAlertsListEndpoint);
-
+                var response = await _httpClient.GetAsync(Links.DonationAlertsListEndpoint); 
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
@@ -76,83 +74,71 @@ namespace DAlertsApi.ApiV1lib
 
             return null;
         }
-        public async Task<CustomAlertsResponseWrap?> PostCustomAlertAsync(CustomAlertsRequest request, string bearerToken)
+        public async Task<CustomAlertsResponseWrap?> PostCustomAlertAsync(CustomAlertsRequest request)
         {
-            using (var _httpClient = new HttpClient())
+            try
             {
-                try
+                var json = JsonConvert.SerializeObject(request);
+                 
+                _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-www-form-urlencoded"));
+                var requestData = new Dictionary<string, string>
                 {
-                    var json = JsonConvert.SerializeObject(request);
+                    { "external_id", request.External_id },
+                    { "header", request.Header },
+                    { "message", request.Message },
+                    { "is_show", request.Is_show.ToString() },
+                    { "image_url", request.Image_url },
+                    { "sound_url", request.Sound_url }
+                };
+                var content = new FormUrlEncodedContent(requestData);
+                var response = await _httpClient.PostAsync(Links.CustomAlertsEndpoint, content);
 
-                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-                    _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-www-form-urlencoded"));
-                    var requestData = new Dictionary<string, string>
-                    {
-                        { "external_id", request.External_id },
-                        { "header", request.Header },
-                        { "message", request.Message },
-                        { "is_show", request.Is_show.ToString() },
-                        { "image_url", request.Image_url },
-                        { "sound_url", request.Sound_url }
-                    };
-                    var content = new FormUrlEncodedContent(requestData);
-                    var response = await _httpClient.PostAsync(Links.CustomAlertsEndpoint, content);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var responseContent = await response.Content.ReadAsStringAsync();
-                        var customAlertResponse = JsonConvert.DeserializeObject<CustomAlertsResponseWrap>(responseContent);
-                        logger?.Log($"Custom alert posted: {customAlertResponse?.Data}");
-                        return customAlertResponse;
-                    }
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    var customAlertResponse = JsonConvert.DeserializeObject<CustomAlertsResponseWrap>(responseContent);
+                    logger?.Log($"Custom alert posted: {customAlertResponse?.Data}");
+                    return customAlertResponse;
                 }
-                catch (Exception ex)
-                {
-                    logger?.Log($"Error while posting custom alert: {ex.Message}", LogLevel.Error);
-                } 
-                return null;
             }
-        }
-        public async Task<CreateMerchandiseResponseWrap?> CreateMerchandiseAsync(CreateMerchandiseRequest request, string bearerToken)
-        {
-            using (var client = new HttpClient())
+            catch (Exception ex)
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+                logger?.Log($"Error while posting custom alert: {ex.Message}", LogLevel.Error);
+            } 
+            return null;
+        }
+        public async Task<CreateMerchandiseResponseWrap?> CreateMerchandiseAsync(CreateMerchandiseRequest request)
+        {
+            using (var formContent = new MultipartFormDataContent())
+            {
+                formContent.Add(new StringContent(request.Merchant_identifier), "merchant_identifier");
+                formContent.Add(new StringContent(request.Merchandise_identifier), "merchandise_identifier"); 
+                foreach (var title in request.Title) formContent.Add(new StringContent(title.Value), $"title[{title.Key}]");
+                formContent.Add(new StringContent(request.Is_active.ToString()), "is_active");
+                formContent.Add(new StringContent(request.Is_percentage.ToString()), "is_percentage");
+                formContent.Add(new StringContent(request.Currency.ToString()), "currency");
+                formContent.Add(new StringContent(request.Price_user.ToString()), "price_user");
+                formContent.Add(new StringContent(request.Price_service.ToString()), "price_service");
+                formContent.Add(new StringContent(request.Url), "url");
+                formContent.Add(new StringContent(request.Img_url), "img_url");
+                formContent.Add(new StringContent(request.Signature), "signature");
 
-                using (var formContent = new MultipartFormDataContent())
+                var response = await _httpClient.PostAsync(Links.MerchandiseEndpoint, formContent);
+
+                if (response.IsSuccessStatusCode)
                 {
-                    formContent.Add(new StringContent(request.Merchant_identifier), "merchant_identifier");
-                    formContent.Add(new StringContent(request.Merchandise_identifier), "merchandise_identifier"); 
-                    foreach (var title in request.Title) formContent.Add(new StringContent(title.Value), $"title[{title.Key}]");
-                    formContent.Add(new StringContent(request.Is_active.ToString()), "is_active");
-                    formContent.Add(new StringContent(request.Is_percentage.ToString()), "is_percentage");
-                    formContent.Add(new StringContent(request.Currency.ToString()), "currency");
-                    formContent.Add(new StringContent(request.Price_user.ToString()), "price_user");
-                    formContent.Add(new StringContent(request.Price_service.ToString()), "price_service");
-                    formContent.Add(new StringContent(request.Url), "url");
-                    formContent.Add(new StringContent(request.Img_url), "img_url");
-                    formContent.Add(new StringContent(request.Signature), "signature");
-
-                    var response = await client.PostAsync(Links.MerchandiseEndpoint, formContent);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        string content = await response.Content.ReadAsStringAsync();
-                        return JsonConvert.DeserializeObject<CreateMerchandiseResponseWrap>(content);
-                    }
-                    else
-                    {
-                        logger?.Log($"Error from {nameof(CreateMerchandiseAsync)} : {response.StatusCode}, {await response.Content.ReadAsStringAsync()}", LogLevel.Error);
-                        return null;
-                    }
+                    string content = await response.Content.ReadAsStringAsync();
+                    return JsonConvert.DeserializeObject<CreateMerchandiseResponseWrap>(content);
+                }
+                else
+                {
+                    logger?.Log($"Error from {nameof(CreateMerchandiseAsync)} : {response.StatusCode}, {await response.Content.ReadAsStringAsync()}", LogLevel.Error);
+                    return null;
                 }
             }
         }
-        public async Task<UpdateMerchandiseResponseWrap?> UpdateMerchandiseAsync(UpdateMerchandiseRequest request, int merchandiseId, string bearerToken)
+        public async Task<UpdateMerchandiseResponseWrap?> UpdateMerchandiseAsync(UpdateMerchandiseRequest request, int merchandiseId)
         {
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-
             var titleContent = request.Title.Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value));
             var content = new FormUrlEncodedContent(titleContent.Concat(new[]
             { 
@@ -166,7 +152,7 @@ namespace DAlertsApi.ApiV1lib
                 new KeyValuePair<string, string>("signature", request.Signature)
             }));
 
-            var response = await client.PutAsync($"{Links.MerchandiseEndpoint}/{merchandiseId}", content);
+            var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchandiseId}", content);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -177,14 +163,14 @@ namespace DAlertsApi.ApiV1lib
             var responseContent = await response.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<UpdateMerchandiseResponseWrap>(responseContent);
         }
-        public async Task<CreateOrUpdateMerchandiseResponseWrap?> CreateOrUpdateMerchandiseAsync(CreateOrUpdateMerchandiseRequest request, string merchantIdentifier, string merchandiseIdentifier, string bearerToken)
+        public async Task<CreateOrUpdateMerchandiseResponseWrap?> CreateOrUpdateMerchandiseAsync(CreateOrUpdateMerchandiseRequest request, string merchantIdentifier, string merchandiseIdentifier)
         {
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+            IEnumerable<KeyValuePair<string, string>> titleContent = 
+                request.Title
+                .Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value));
 
-            var titleContent = request.Title.Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value)); 
-            var content = new FormUrlEncodedContent(titleContent.Concat(new[]
-            { 
+            using (var content = new FormUrlEncodedContent(titleContent.Concat(new[]
+            {
                 new KeyValuePair<string, string>("is_active", request.IsActive.ToString()),
                 new KeyValuePair<string, string>("is_percentage", request.IsPercentage.ToString()),
                 new KeyValuePair<string, string>("currency", request.Currency.ToString()),
@@ -192,29 +178,28 @@ namespace DAlertsApi.ApiV1lib
                 new KeyValuePair<string, string>("price_service", request.PriceService.ToString(CultureInfo.InvariantCulture)),
                 new KeyValuePair<string, string>("url", request.Url),
                 new KeyValuePair<string, string>("img_url", request.ImgUrl),
-                new KeyValuePair<string, string>("end_at_ts", request.EndAtTs.ToString()),
+                new KeyValuePair<string, string>("end_at_ts", request.EndAtTs?.ToString() ?? string.Empty),
                 new KeyValuePair<string, string>("signature", request.Signature)
-            }));
-
-            var response = await client.PutAsync($"{Links.MerchandiseEndpoint}/{merchantIdentifier}/{merchandiseIdentifier}", content);
-
-            if (!response.IsSuccessStatusCode)
+            })))
             {
-                logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
-                return null;
+                var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchantIdentifier}/{merchandiseIdentifier}", content);
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
+                    return null;
+                }
+
+                var jsonString = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<CreateOrUpdateMerchandiseResponseWrap>(jsonString);
+
+                return result; 
             }
 
-            var jsonString = await response.Content.ReadAsStringAsync();
-            var result = JsonConvert.DeserializeObject<CreateOrUpdateMerchandiseResponseWrap>(jsonString);
-
-            return result;
+            
         }
         public async Task<CreateMerchandiseSaleNotificationResponseWrap?> CreateMerchandiseSaleNotificationAsync(CreateMerchandiseSaleNotificationRequest request, string bearerToken)
         {
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken); 
-
-            var content = new FormUrlEncodedContent(new[]
+            using (var content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("user_id", request.UserId.ToString()),
                 new KeyValuePair<string, string>("external_id", request.ExternalId),
@@ -226,20 +211,21 @@ namespace DAlertsApi.ApiV1lib
                 new KeyValuePair<string, string>("username", request.Username),
                 new KeyValuePair<string, string>("message", request.Message),
                 new KeyValuePair<string, string>("signature", request.Signature)
-            });
-
-            var response = await client.PostAsync(Links.MerchandiseSaleEndpoint, content);
-
-            if (!response.IsSuccessStatusCode)
+            }))
             {
-                logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
-                return null;
-            }
 
-            var jsonString = await response.Content.ReadAsStringAsync();
-            var result = JsonConvert.DeserializeObject<CreateMerchandiseSaleNotificationResponseWrap>(jsonString);
+                var response = await _httpClient.PostAsync(Links.MerchandiseSaleEndpoint, content);
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
+                    return null;
+                }
 
-            return result;
+                var jsonString = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<CreateMerchandiseSaleNotificationResponseWrap>(jsonString);
+
+                return result;
+            } 
         }
 
         public void Dispose()

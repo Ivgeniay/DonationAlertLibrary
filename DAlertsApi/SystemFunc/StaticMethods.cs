@@ -9,7 +9,7 @@ namespace DAlertsApi.SystemFunc
 {
     public class StaticMethods
     {
-        public static string GetUrl(string url, string port = null, string routing = null)
+        public static string GetUrl(string url, string? port = null, string? routing = null)
         { 
             Uri uri = new Uri(url + routing);
             if (port == null) return url;

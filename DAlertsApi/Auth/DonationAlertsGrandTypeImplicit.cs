@@ -13,20 +13,11 @@ namespace DAlertsApi.Auth
     /// 2. Authorization request (redirect user to GetAuthorizationUrl());
     /// 3. Getting access token (getting token from response query)
     /// </summary>
-    public class DonationAlertsGrandTypeImplicit
-    {
-        private readonly Credentials credentials;
-        private readonly ILogger logger;
+    public class DonationAlertsGrandTypeImplicit : DonationAlertsAuthBase
+    { 
 
-        public DonationAlertsGrandTypeImplicit(Credentials credentials)
-        {
-            this.credentials = credentials;
-        }
-        public DonationAlertsGrandTypeImplicit(Credentials credentials, ILogger logger)
-        {
-            this.credentials = credentials;
-            this.logger = logger;
-        }
+        public DonationAlertsGrandTypeImplicit(Credentials credentials) : base(credentials) { }
+        public DonationAlertsGrandTypeImplicit(Credentials credentials, ILogger logger) : this(credentials) { }
 
         public string GetAuthorizationUrl(AuthorizationImplicitRequest authCodeRequest)
         {
@@ -35,7 +26,7 @@ namespace DAlertsApi.Auth
 
             return link;
         }
-        public string GetAuthorizationUrl()
+        public override string GetAuthorizationUrl()
         {
             var link = $"{Links.AuthorizationEndpoint}?client_id={credentials.ClientId}&redirect_uri={StaticMethods.GetUrl(credentials.Redirect, credentials.Port)}&response_type=token";
             if (credentials.Scope.Length > 0) link += "&scope=" + Scope.GetScopeToQueryString(credentials.Scope); 

@@ -9,20 +9,18 @@ namespace DAlertsApi.SystemFunc
     public class SimpleServer : IDisposable
     {
         private readonly string url;
-        private readonly string port;
-        private readonly ILogger logger;
-        private HttpListener listener; 
+        private readonly string? port;
+        private readonly ILogger? logger;
+        private HttpListener? listener; 
         private bool isRunning;
 
-        public SimpleServer(string url, string port = null)
+        public SimpleServer(string url, string? port = null)
         {
             this.url = url;
             this.port = port;
         }
-        public SimpleServer(string url, string port = null, ILogger logger = null)
-        {
-            this.url = url;
-            this.port = port;
+        public SimpleServer(string url, string? port = null, ILogger? logger = null) : this(url, port)
+        { 
             this.logger = logger;
         } 
 
@@ -35,8 +33,14 @@ namespace DAlertsApi.SystemFunc
             listener.Start();
             logger?.Log($"Server was started with: {url}");
         }
-        public async Task<CodeModel> AwaitCode()
+        public async Task<CodeModel?> AwaitCode()
         {
+            if (!isRunning)
+            {
+                logger?.Log("Server is not running");
+                return null;
+            }
+
             CodeModel codeModel = new();
             while (isRunning)
             {
@@ -45,9 +49,31 @@ namespace DAlertsApi.SystemFunc
                     HttpListenerContext context = await listener.GetContextAsync();
                     HttpListenerRequest request = context.Request;
 
+                    if (request == null)
+                    {
+                        logger?.Log("SIMPLE SERVER: Request is null", LogLevel.Warning);
+                        continue;
+                    }
+                    if (request.Url == null)
+                    {
+                        logger?.Log("SIMPLE SERVER: Request URL is null", LogLevel.Warning);
+                        continue;
+                    }
+                    
+
                     // Парсим query параметры 
                     var query = HttpUtility.ParseQueryString(request.Url.Query);
-                    var queryDict = query.AllKeys.ToDictionary(k => k?.ToLower(), k => query[k]);
+                    if (query == null )
+                    {
+                        logger?.Log("SIMPLE SERVER: Query is null", LogLevel.Warning);
+                        continue;
+                    }
+                    if (query.AllKeys == null)
+                    {
+                        logger?.Log("SIMPLE SERVER: Query AllKeys is null", LogLevel.Warning);
+                        continue;
+                    }
+                    Dictionary<string?, string?> queryDict = query.AllKeys.ToDictionary(k => k?.ToLower(), k => query[k]);
 
                     codeModel.Code = queryDict.GetValueOrDefault("code", string.Empty); 
                     context.Response.StatusCode = (int)HttpStatusCode.OK;
