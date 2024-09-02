@@ -103,5 +103,6 @@ namespace DAlertsApi.Models.Centrifugo
 
         [JsonProperty("data")]
         public PollsUpdates Data { get; set; } = new PollsUpdates();
+        public override string ToString() => JsonConvert.SerializeObject(this);
     }
 }

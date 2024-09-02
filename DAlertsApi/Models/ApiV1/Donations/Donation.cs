@@ -1,4 +1,5 @@
-﻿using DAlertsApi.Models.Data;
+﻿using DAlertsApi.Models.Centrifugo;
+using DAlertsApi.Models.Data;
 using DAlertsApi.Models.Pagination;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -47,6 +48,19 @@ namespace DAlertsApi.Models.ApiV1.Donations
         [JsonProperty("shown_at")]
         public string? Shown_at { get; set; }
 
+        public override string ToString() => JsonConvert.SerializeObject(this);
+    }
+
+    /// <summary>
+    /// Using in centrifugo client
+    /// </summary>
+    public class DonationDataWrapper
+    {
+        [JsonProperty("seq")]
+        public int Seq { get; set; }
+
+        [JsonProperty("data")]
+        public Donation Data { get; set; } = new Donation();
         public override string ToString() => JsonConvert.SerializeObject(this);
     }
 

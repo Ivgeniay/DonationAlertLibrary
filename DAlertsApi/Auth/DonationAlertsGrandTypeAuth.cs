@@ -25,7 +25,7 @@ namespace DAlertsApi.Auth
     public class DonationAlertsGrandTypeAuth : DonationAlertsAuthBase
     {
         public AccessTokenGetted OnAccessTokenGetted;
-        public RefreshTokenGetted OnRefreshTokenGetted; 
+        public RefreshTokenGetted OnRefreshTokenGetted;
 
         public DonationAlertsGrandTypeAuth(Credentials credentials) : base(credentials) { }
         public DonationAlertsGrandTypeAuth(Credentials credentials, ILogger? logger) : this(credentials) { } 

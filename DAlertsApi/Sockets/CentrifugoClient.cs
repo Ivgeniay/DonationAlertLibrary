@@ -11,25 +11,19 @@ namespace DAlertsApi.Sockets
 {
     public class CentrifugoClient
     {
+        public event Action<DonationDataWrapper>? OnDonationReceived;
         public event Action<WebSocketMessage>? OnMessageReceived; 
         public event Action<GoalsUpdateWrapper>? OnGoalUpdated;
         public event Action<GoalInfo>? OnGoalLaunchUpdate; 
         public event Action<PollDataWrapper>? OnPollUpdated;
-        public event Action<Donation>? OnDonationReceived;
         public int MaxRetryAttempts { get; set; } = 3;
         public int RetryDelayMilliseconds { get; set; } = 2000;
 
         private readonly ClientWebSocket _webSocket;
         private readonly ILogger? logger;
 
-        public CentrifugoClient()
-        {
-            _webSocket = new ClientWebSocket(); 
-        }
-        public CentrifugoClient(ILogger? logger) : this()
-        {
-            this.logger = logger; 
-        }
+        public CentrifugoClient() => _webSocket = new ClientWebSocket();
+        public CentrifugoClient(ILogger? logger) : this() => this.logger = logger;
 
         /// <summary>
         /// First step of connection to Centrifugo WebSocket server. Connects to the server and sends authentication message.
@@ -114,7 +108,6 @@ namespace DAlertsApi.Sockets
                 return null;
             }
         }
-
         /// <summary>
         /// Subscribe to channels.
         /// </summary>
@@ -282,7 +275,6 @@ namespace DAlertsApi.Sockets
         private void HandleMessage(WebSocketMessage wsMessage)
         {
             OnMessageReceived?.Invoke(wsMessage);
-
             try
             {  
                 if (wsMessage.Result.Channel.Contains("goals:"))
@@ -330,15 +322,17 @@ namespace DAlertsApi.Sockets
                     logger?.Log($"Received pool update message: {desData}");
                 }
                 else if (wsMessage.Result.Channel.Contains("alerts:"))
-                { 
-                    Donation? donation = JsonConvert.DeserializeObject<Donation>(wsMessage.ToString());
-                    if(donation == null)
+                {
+                    dynamic data = wsMessage.Result.Data;
+                    string dataJson = JsonConvert.SerializeObject(data);
+                    var desData = JsonConvert.DeserializeObject<DonationDataWrapper>(dataJson); 
+                    if(desData == null)
                     {
                         logger?.Log("Failed to deserialize donation message.", LogLevel.Error);
                         return;
                     }
-                    OnDonationReceived?.Invoke(donation); 
-                    logger?.Log($"Received donation message: {donation}");
+                    OnDonationReceived?.Invoke(desData); 
+                    logger?.Log($"Received donation message: {desData}");
                 } 
             }
             catch (Exception ex)

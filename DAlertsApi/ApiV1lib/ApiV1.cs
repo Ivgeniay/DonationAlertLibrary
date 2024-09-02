@@ -28,11 +28,11 @@ namespace DAlertsApi.ApiV1lib
         private readonly HttpClient _httpClient;
         private readonly ILogger? logger;
 
-        public ApiV1(string token, ILogger? logger)
+        public ApiV1(string bearerToken, ILogger? logger)
         {
             this.logger = logger;
             _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
         }
 
         public async Task<UserWrap?> GetUserProfileAsync()

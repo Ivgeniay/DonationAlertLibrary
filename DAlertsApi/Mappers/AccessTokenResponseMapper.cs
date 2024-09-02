@@ -14,7 +14,6 @@ namespace DAlertsApi.Mappers
             accessTokenResponse.Refresh_token = refreshTokenResponse.Refresh_token;
             return accessTokenResponse;
         }
-
         public static AccessTokenResponseDTO FromRefreshTokenResponseToAccessTokenResponseDTO(this AccessTokenResponseDTO accessTokenResponse, RefreshTokenResponse refreshTokenResponse)
         {
             return new AccessTokenResponseDTO
@@ -27,7 +26,6 @@ namespace DAlertsApi.Mappers
                 ExperedDate = DateTime.Now.AddMilliseconds(refreshTokenResponse.Expires_in)
             };
         }
-
         public static AccessTokenResponseDTO FromAccessTokenResponseToAccessTokenResponseDTO(this AccessTokenResponse accessTokenResponse)
         {
             return new AccessTokenResponseDTO
@@ -40,7 +38,6 @@ namespace DAlertsApi.Mappers
                 ExperedDate = DateTime.Now.AddMilliseconds(accessTokenResponse.Expires_in)
             };
         }
-
         public static AccessTokenResponse FromAccessTokenResponseDTOToAccessTokenResponse(this AccessTokenResponseDTO accessTokenResponseDTO)
         {
             return new AccessTokenResponse

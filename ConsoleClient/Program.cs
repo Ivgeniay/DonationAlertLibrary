@@ -1,6 +1,6 @@
 ﻿using DAlertsApi.Models.Settings;
 using DAlertsApi.Logger;
-using DAlertsApi;
+using DAlertsApi.Facade;
 
 namespace ConsoleClient
 {
@@ -45,26 +45,14 @@ namespace ConsoleClient
                 ScopeType.OauthDonationIndex,
                 ScopeType.OauthUserShow
                 );
-            ApiDesctopSampleFacade apiFacade = new(credentials, logger);
-            apiFacade.CentrifugoClient.OnDonationReceived += (donation) =>
-            {
-                Console.WriteLine(donation.ToString());
-            };
-            apiFacade.CentrifugoClient.OnGoalLaunchUpdate += (donation) =>
-            {
-                Console.WriteLine(donation.ToString());
-            };
-            apiFacade.CentrifugoClient.OnGoalUpdated += (donation) =>
-            {
-                Console.WriteLine(donation.ToString());
-            };
-            apiFacade.CentrifugoClient.OnPollUpdated += (donation) =>
-            {
-                Console.WriteLine(donation.ToString());
-            }; 
+            ApiDesktopSampleFacade apiFacade = new(credentials, logger);
+
+            apiFacade.OnDonationReceived += (donation) => Console.WriteLine(donation.ToString());
+            apiFacade.OnGoalLaunchUpdate += (donation) => Console.WriteLine(donation.ToString());
+            apiFacade.OnGoalUpdated += (donation) => Console.WriteLine(donation.ToString()); 
+            apiFacade.OnPollUpdated += (donation) => Console.WriteLine(donation.ToString());
 
             apiFacade.Start();
-
             Console.ReadKey();
         }
     }

@@ -1,5 +1,8 @@
 ﻿namespace DAlertsApi.Models.Settings
 {
+    /// <summary>
+    /// Store all necessary credentials for the application.
+    /// </summary>
     public class Credentials
     {
         public readonly int ClientId;
