@@ -36,6 +36,7 @@ namespace DAlertsApi.Facade
             centrifugoClient.OnGoalUpdated += (goalsUpdateWrapper) => OnGoalUpdated?.Invoke(goalsUpdateWrapper);
             centrifugoClient.OnGoalLaunchUpdate += (goalInfo) => OnGoalLaunchUpdate?.Invoke(goalInfo);
             centrifugoClient.OnDonationReceived += (donation) => OnDonationReceived?.Invoke(donation);
+            centrifugoClient.OnMessageReceived += (message) => OnMessageReceived?.Invoke(message);
 
             this.credentials = credentials;
             this.userWrap = userWrap;
