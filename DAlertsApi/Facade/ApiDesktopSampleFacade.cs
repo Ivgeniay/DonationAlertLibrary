@@ -34,7 +34,7 @@ namespace DAlertsApi.Facade
         /// <summary>
         /// Centrifugo event returning any Donation message from WebSocket Donation Allerts
         /// </summary>
-        public event Action<DonationDataWrapper>? OnDonationReceived;
+        public event Action<DonationWrapper>? OnDonationReceived;
 
         /// <summary>
         /// AuthCode delegate to obtain Access Token

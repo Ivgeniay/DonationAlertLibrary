@@ -15,7 +15,7 @@ namespace DAlertsApi.Facade
     /// </summary>
     public class CentrifugoClientFacade
     {
-        public event Action<DonationDataWrapper>? OnDonationReceived;
+        public event Action<DonationWrapper>? OnDonationReceived;
         public event Action<WebSocketMessage>? OnMessageReceived;
         public event Action<GoalsUpdateWrapper>? OnGoalUpdated;
         public event Action<PollDataWrapper>? OnPollUpdated;

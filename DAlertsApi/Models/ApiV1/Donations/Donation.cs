@@ -22,8 +22,8 @@ namespace DAlertsApi.Models.ApiV1.Donations
     /// is_shown:           A flag indicating whether the alert was shown in the streamer's widget
     /// created_at:         The donation date and time (YYYY-MM-DD HH.MM.SS formatted)
     /// shown_at:           Date and time indicating when the alert was shown (YYYY-MM-DD HH.MM.SS formatted). Or null if the alert is not shown yet
-
     /// </summary>
+     
     public class Donation
     {
         [JsonProperty("id")]
@@ -49,21 +49,7 @@ namespace DAlertsApi.Models.ApiV1.Donations
         public string? Shown_at { get; set; }
 
         public override string ToString() => JsonConvert.SerializeObject(this);
-    }
-
-    /// <summary>
-    /// Using in centrifugo client
-    /// </summary>
-    public class DonationDataWrapper
-    {
-        [JsonProperty("seq")]
-        public int Seq { get; set; }
-
-        [JsonProperty("data")]
-        public Donation Data { get; set; } = new Donation();
-        public override string ToString() => JsonConvert.SerializeObject(this);
-    }
-
+    } 
 
     /// <summary>
     /// DonationWrap is a wrapper for Donation model that contains links and meta information
@@ -78,5 +64,89 @@ namespace DAlertsApi.Models.ApiV1.Donations
         public PaginationInfo Meta { get; set; } = new();
 
         public override string ToString() => JsonConvert.SerializeObject(this);
+    }
+
+
+    /// <summary>
+    /// Using in centrifugo client
+    /// </summary>
+    public class DonationWrapper
+    {
+        [JsonProperty("seq")]
+        public int Seq { get; set; }
+
+        [JsonProperty("data")]
+        public DonationData Data { get; set; } = new DonationData(); 
+        public override string ToString() => JsonConvert.SerializeObject(this);
+
+
+        public class DonationData
+        {
+            [JsonProperty("id")]
+            public int Id { get; set; }
+
+            [JsonProperty("name")]
+            public string Name { get; set; } = string.Empty;
+
+            [JsonProperty("username")]
+            public string? Username { get; set; }
+
+            [JsonProperty("message")]
+            public string? Message { get; set; }
+
+            [JsonProperty("message_type")]
+            public string MessageType { get; set; } = string.Empty;
+
+            [JsonProperty("payin_system")]
+            public PayinSystem PayinSystem { get; set; } = new PayinSystem();
+
+            [JsonProperty("amount")]
+            public decimal Amount { get; set; }
+
+            [JsonProperty("currency")]
+            public string Currency { get; set; } = string.Empty;
+
+            [JsonProperty("is_shown")]
+            public int IsShown { get; set; }
+
+            [JsonProperty("amount_in_user_currency")]
+            public decimal AmountInUserCurrency { get; set; }
+
+            [JsonProperty("recipient_name")]
+            public string RecipientName { get; set; } = string.Empty;
+
+            [JsonProperty("recipient")]
+            public Recipient Recipient { get; set; } = new Recipient();
+
+            [JsonProperty("created_at")]
+            public DateTime CreatedAt { get; set; }
+
+            [JsonProperty("shown_at")]
+            public DateTime? ShownAt { get; set; }
+
+            [JsonProperty("reason")]
+            public string Reason { get; set; } = string.Empty;
+        }
+
+        public class PayinSystem
+        {
+            [JsonProperty("title")]
+            public string Title { get; set; } = string.Empty;
+        }
+
+        public class Recipient
+        {
+            [JsonProperty("user_id")]
+            public int UserId { get; set; }
+
+            [JsonProperty("code")]
+            public string Code { get; set; } = string.Empty;
+
+            [JsonProperty("name")]
+            public string Name { get; set; } = string.Empty;
+
+            [JsonProperty("avatar")]
+            public string Avatar { get; set; } = string.Empty;
+        }
     }
 }

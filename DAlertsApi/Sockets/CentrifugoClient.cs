@@ -11,11 +11,11 @@ namespace DAlertsApi.Sockets
 {
     public class CentrifugoClient
     {
-        public event Action<DonationDataWrapper>? OnDonationReceived;
+        public event Action<DonationWrapper>? OnDonationReceived;
         public event Action<WebSocketMessage>? OnMessageReceived; 
         public event Action<GoalsUpdateWrapper>? OnGoalUpdated;
-        public event Action<GoalInfo>? OnGoalLaunchUpdate; 
         public event Action<PollDataWrapper>? OnPollUpdated;
+        public event Action<GoalInfo>? OnGoalLaunchUpdate; 
         public int MaxRetryAttempts { get; set; } = 3;
         public int RetryDelayMilliseconds { get; set; } = 2000;
 
@@ -325,7 +325,7 @@ namespace DAlertsApi.Sockets
                 {
                     dynamic data = wsMessage.Result.Data;
                     string dataJson = JsonConvert.SerializeObject(data);
-                    var desData = JsonConvert.DeserializeObject<DonationDataWrapper>(dataJson); 
+                    var desData = JsonConvert.DeserializeObject<DonationWrapper>(dataJson); 
                     if(desData == null)
                     {
                         logger?.Log("Failed to deserialize donation message.", LogLevel.Error);
