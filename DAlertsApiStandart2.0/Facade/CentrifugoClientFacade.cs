@@ -7,6 +7,10 @@ using DAlertsApi.Models.Settings;
 using DAlertsApi.Mappers;
 using DAlertsApi.Sockets;
 using DAlertsApi.Logger;
+using System;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Linq;
 
 namespace DAlertsApi.Facade
 {
@@ -54,7 +58,7 @@ namespace DAlertsApi.Facade
                     logger?.Log($"Successfully authenticated with Client ID: {response.Result.Client}");
                     string clientId = response.Result.Client;
                     string[] channels = Channels.GetChannels(userWrap.Id, ChannelsType.Allerts, ChannelsType.Goals, ChannelsType.Pools);
-                    SubscriptionRequest subscribeRequest = new()
+                    SubscriptionRequest subscribeRequest = new SubscriptionRequest()
                     {
                         Client = clientId,
                         Channels = channels.ToList()

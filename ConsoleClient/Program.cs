@@ -52,7 +52,7 @@ namespace ConsoleClient
             apiFacade.OnGoalUpdated += (donation) => Console.WriteLine(donation.ToString()); 
             apiFacade.OnPollUpdated += (donation) => Console.WriteLine(donation.ToString());
 
-            apiFacade.Start();
+            apiFacade.StartAsync();
             Console.ReadKey();
         }
     }
