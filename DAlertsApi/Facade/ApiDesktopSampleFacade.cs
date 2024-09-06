@@ -57,64 +57,72 @@ namespace DAlertsApi.Facade
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            alertsAuth = new(credentials, logger);
-            alertsAuth.OnAccessTokenGetted += (response) => OnAccessTokenGetted?.Invoke(response);
-            alertsAuth.OnRefreshTokenGetted += (request, response) => OnRefreshTokenGetted?.Invoke(request, response);
-
-            SimpleServer simpleServer = new(credentials.Redirect, credentials.Port, logger);
-            simpleServer.Start();
-
-            logger?.Log("Opening browser...");
-            int idProcess = OpenProcess.Open(
-                alertsAuth.GetAuthorizationUrl(),
-                logger);
-
-            await Task.Run(() =>
+            try
             {
-                logger?.Log("Waiting for code...");
-                Thread.Sleep(1500);
-            });
+                cancellationToken.ThrowIfCancellationRequested();
+                alertsAuth = new(credentials, logger);
+                alertsAuth.OnAccessTokenGetted += (response) => OnAccessTokenGetted?.Invoke(response);
+                alertsAuth.OnRefreshTokenGetted += (request, response) => OnRefreshTokenGetted?.Invoke(request, response);
 
-            CodeModel? codeModel = await simpleServer.AwaitCode();
-            logger?.Log(codeModel?.ToString() ?? "null");
-            simpleServer.Dispose();
-            OpenProcess.Close(idProcess, logger);
+                SimpleServer simpleServer = new(credentials.Redirect, credentials.Port, logger);
+                simpleServer.Start();
 
-            AccessTokenCodeRequest accessTokenRequest = new()
-            {
-                Client_id = credentials.ClientId,
-                Client_secret = credentials.ClientSecret,
-                Code = codeModel.Code,
-                Redirect_uri = StaticMethods.GetUrl(credentials.Redirect, credentials.Port)
-            };
-            logger?.Log(accessTokenRequest.ToString() ?? "null");
-            AccessTokenResponse? accesTokenResponse = await alertsAuth.GetAccessTokenAsync(accessTokenRequest);
-            if (accesTokenResponse == null)
-            {
-                logger?.Log("Failed to get access token.", LogLevel.Error);
-                return;
+                logger?.Log("Opening browser...");
+                int idProcess = OpenProcess.Open(
+                    alertsAuth.GetAuthorizationUrl(),
+                    logger);
+
+                await Task.Run(() =>
+                {
+                    logger?.Log("Waiting for code...");
+                    Thread.Sleep(1500);
+                });
+
+                CodeModel? codeModel = await simpleServer.AwaitCode();
+                logger?.Log(codeModel?.ToString() ?? "null");
+                simpleServer.Dispose();
+                OpenProcess.Close(idProcess, logger);
+
+                AccessTokenCodeRequest accessTokenRequest = new()
+                {
+                    Client_id = credentials.ClientId,
+                    Client_secret = credentials.ClientSecret,
+                    Code = codeModel.Code,
+                    Redirect_uri = StaticMethods.GetUrl(credentials.Redirect, credentials.Port)
+                };
+                logger?.Log(accessTokenRequest.ToString() ?? "null");
+                AccessTokenResponse? accesTokenResponse = await alertsAuth.GetAccessTokenAsync(accessTokenRequest);
+                if (accesTokenResponse == null)
+                {
+                    logger?.Log("Failed to get access token.", LogLevel.Error);
+                    return;
+                }
+                logger?.Log(accesTokenResponse?.ToString() ?? "null");
+
+                ApiV1 apiV1 = new(accesTokenResponse.Access_token, logger);
+                UserWrap? userWrap = await apiV1.GetUserProfileAsync(cancellationToken);
+                if (userWrap == null)
+                {
+                    logger?.Log("Failed to get user profile.", LogLevel.Error);
+                    return;
+                }
+                DonationWrap? donation = await apiV1.GetDonationsAsync(cancellationToken);
+                logger?.Log(userWrap?.ToString() ?? "User is null");
+                logger?.Log(donation?.ToString() ?? "Donation is null");
+
+                CentrifugoClientFacade = new(credentials, userWrap.Data, accesTokenResponse, logger);
+                alertsAuth.OnRefreshTokenGetted += (request, response) => CentrifugoClientFacade.UpdateAccessToken(response);
+                CentrifugoClientFacade.OnDonationReceived += (donation) => OnDonationReceived?.Invoke(donation);
+                CentrifugoClientFacade.OnGoalLaunchUpdate += (goalInfo) => OnGoalLaunchUpdate?.Invoke(goalInfo);
+                CentrifugoClientFacade.OnGoalUpdated += (goalsUpdateWrapper) => OnGoalUpdated?.Invoke(goalsUpdateWrapper);
+                CentrifugoClientFacade.OnPollUpdated += (pollDataWrapper) => OnPollUpdated?.Invoke(pollDataWrapper);
+                CentrifugoClientFacade.OnMessageReceived += (message) => OnMessageReceived?.Invoke(message);
+                await CentrifugoClientFacade.StartAsync(cancellationToken);
             }
-            logger?.Log(accesTokenResponse?.ToString() ?? "null");
-
-            ApiV1 apiV1 = new(accesTokenResponse.Access_token, logger);
-            UserWrap? userWrap = await apiV1.GetUserProfileAsync(cancellationToken);
-            if (userWrap == null)
+            catch (OperationCanceledException)
             {
-                logger?.Log("Failed to get user profile.", LogLevel.Error);
-                return;
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
             }
-            DonationWrap? donation = await apiV1.GetDonationsAsync(cancellationToken);
-            logger?.Log(userWrap?.ToString() ?? "User is null");
-            logger?.Log(donation?.ToString() ?? "Donation is null");
-
-            CentrifugoClientFacade = new(credentials, userWrap.Data, accesTokenResponse, logger);
-            alertsAuth.OnRefreshTokenGetted += (request, response) => CentrifugoClientFacade.UpdateAccessToken(response);
-            CentrifugoClientFacade.OnDonationReceived += (donation) => OnDonationReceived?.Invoke(donation);
-            CentrifugoClientFacade.OnGoalLaunchUpdate += (goalInfo) => OnGoalLaunchUpdate?.Invoke(goalInfo);
-            CentrifugoClientFacade.OnGoalUpdated += (goalsUpdateWrapper) => OnGoalUpdated?.Invoke(goalsUpdateWrapper);
-            CentrifugoClientFacade.OnPollUpdated += (pollDataWrapper) => OnPollUpdated?.Invoke(pollDataWrapper);
-            CentrifugoClientFacade.OnMessageReceived += (message) => OnMessageReceived?.Invoke(message);
-            await CentrifugoClientFacade.StartAsync(cancellationToken);
         }
     }
 }

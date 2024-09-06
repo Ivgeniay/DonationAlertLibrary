@@ -49,38 +49,46 @@ namespace DAlertsApi.Facade
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            bool isConnected = await centrifugoClient.ConnectAsync(userWrap.Socket_connection_token, userWrap.Id, cancellationToken);
-            if (isConnected)
+            try
             {
-                CentrifugoResponse? response = await centrifugoClient.ReceiveClientIdAsync(cancellationToken);
-                if (response != null && !string.IsNullOrEmpty(response.Result?.Client))
+                cancellationToken.ThrowIfCancellationRequested();
+                bool isConnected = await centrifugoClient.ConnectAsync(userWrap.Socket_connection_token, userWrap.Id, cancellationToken);
+                if (isConnected)
                 {
-                    logger?.Log($"Successfully authenticated with Client ID: {response.Result.Client}");
-                    string clientId = response.Result.Client;
-                    string[] channels = Channels.GetChannels(userWrap.Id, ChannelsType.Allerts, ChannelsType.Goals, ChannelsType.Pools);
-                    SubscriptionRequest subscribeRequest = new SubscriptionRequest()
+                    CentrifugoResponse? response = await centrifugoClient.ReceiveClientIdAsync(cancellationToken);
+                    if (response != null && !string.IsNullOrEmpty(response.Result?.Client))
                     {
-                        Client = clientId,
-                        Channels = channels.ToList()
-                    };
-                    SubscriptionResponse? response1 = await centrifugoClient.SubscribeToChannelsAsync(subscribeRequest, accessTokenResponse.Access_token, cancellationToken);
-                    if (response1 != null)
-                    {
-                        logger?.Log($"Successfully subscribed to channels: {string.Join(", ", response1.Channels)}");
-                        int messageId = 1;
-                        int methodId = 1;
-                        foreach (var channel in response1.Channels)
-                        { 
-                            bool isConnectedChannel = await centrifugoClient.ConnectToChannelAsync(channel.Channel, channel.Token, methodId, ++messageId, cancellationToken);
-                            if (isConnectedChannel) { }
+                        logger?.Log($"Successfully authenticated with Client ID: {response.Result.Client}");
+                        string clientId = response.Result.Client;
+                        string[] channels = Channels.GetChannels(userWrap.Id, ChannelsType.Allerts, ChannelsType.Goals, ChannelsType.Pools);
+                        SubscriptionRequest subscribeRequest = new SubscriptionRequest()
+                        {
+                            Client = clientId,
+                            Channels = channels.ToList()
+                        };
+                        SubscriptionResponse? response1 = await centrifugoClient.SubscribeToChannelsAsync(subscribeRequest, accessTokenResponse.Access_token, cancellationToken);
+                        if (response1 != null)
+                        {
+                            logger?.Log($"Successfully subscribed to channels: {string.Join(", ", response1.Channels)}");
+                            int messageId = 1;
+                            int methodId = 1;
+                            foreach (var channel in response1.Channels)
+                            { 
+                                bool isConnectedChannel = await centrifugoClient.ConnectToChannelAsync(channel.Channel, channel.Token, methodId, ++messageId, cancellationToken);
+                                if (isConnectedChannel) { }
+                            }
+                            logger?.Log("Listening for messages...");
+                            await centrifugoClient.ListenForMessagesAsync(CancellationToken.None);
                         }
-                        logger?.Log("Listening for messages...");
-                        await centrifugoClient.ListenForMessagesAsync(CancellationToken.None);
                     }
+                    else logger?.Log("Failed to authenticate with Centrifugo. (ReceiveClientId)", LogLevel.Error);
                 }
-                else logger?.Log("Failed to authenticate with Centrifugo. (ReceiveClientId)", LogLevel.Error);
+                else logger?.Log("Failed to establish a connection with Centrifugo.", LogLevel.Error);
             }
-            else logger?.Log("Failed to establish a connection with Centrifugo.", LogLevel.Error);
+            catch (OperationCanceledException)
+            {
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
+            }
         }
         public void UpdateAccessToken(RefreshTokenResponse refreshTokenResponse) =>        
             accessTokenResponse = accessTokenResponse.FromRefreshTokenResponseToAccessTokenResponse(refreshTokenResponse);

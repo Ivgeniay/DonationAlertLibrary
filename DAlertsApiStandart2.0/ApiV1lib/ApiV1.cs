@@ -45,193 +45,250 @@ namespace DAlertsApi.ApiV1lib
         {
             try
             {
-                var response = await _httpClient.GetAsync(Links.UserOauthEndpoint, cancellationToken); 
-                if (response.IsSuccessStatusCode)
+                cancellationToken.ThrowIfCancellationRequested();
+                try
                 {
-                    string content = await response.Content.ReadAsStringAsync();
-                    UserWrap? user = JsonConvert.DeserializeObject<UserWrap>(content);
-                    logger?.Log($"User profile received: {user?.Data}");
-                    return user;
+                    var response = await _httpClient.GetAsync(Links.UserOauthEndpoint, cancellationToken); 
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string content = await response.Content.ReadAsStringAsync();
+                        UserWrap? user = JsonConvert.DeserializeObject<UserWrap>(content);
+                        logger?.Log($"User profile received: {user?.Data}");
+                        return user;
+                    }
                 }
+                catch (Exception ex)
+                {
+                    logger?.Log($"Error while getting user profile: {ex.Message}", LogLevel.Error);
+                } 
+                return null;
             }
-            catch (Exception ex)
+            catch (OperationCanceledException e)
             {
-                logger?.Log($"Error while getting user profile: {ex.Message}", LogLevel.Error);
-            } 
-            return null;
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
+                return null;
+            }
         }
         public async Task<DonationWrap?> GetDonationsAsync(CancellationToken cancellationToken)
         {
             try
             {
-                var response = await _httpClient.GetAsync(Links.DonationAlertsListEndpoint, cancellationToken); 
-                if (response.IsSuccessStatusCode)
+                cancellationToken.ThrowIfCancellationRequested();
+                try
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    DonationWrap? donations = JsonConvert.DeserializeObject<DonationWrap>(content);
-                    logger?.Log($"Donations received: {donations}");
-                    return donations;
+                    var response = await _httpClient.GetAsync(Links.DonationAlertsListEndpoint, cancellationToken); 
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var content = await response.Content.ReadAsStringAsync();
+                        DonationWrap? donations = JsonConvert.DeserializeObject<DonationWrap>(content);
+                        logger?.Log($"Donations received: {donations}");
+                        return donations;
+                    }
                 }
+                catch (Exception ex)
+                {
+                    logger?.Log($"Error while getting donations: {ex.Message}", LogLevel.Error);
+                } 
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                logger?.Log($"Error while getting donations: {ex.Message}", LogLevel.Error);
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
             }
-
             return null;
         }
         public async Task<CustomAlertsResponseWrap?> PostCustomAlertAsync(CustomAlertsRequest request, CancellationToken cancellationToken)
         {
             try
             {
-                var json = JsonConvert.SerializeObject(request);
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    var json = JsonConvert.SerializeObject(request);
                  
-                _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-www-form-urlencoded"));
-                var requestData = new Dictionary<string, string>
-                {
-                    { "external_id", request.External_id },
-                    { "header", request.Header },
-                    { "message", request.Message },
-                    { "is_show", request.Is_show.ToString() },
-                    { "image_url", request.Image_url },
-                    { "sound_url", request.Sound_url }
-                };
-                var content = new FormUrlEncodedContent(requestData);
-                var response = await _httpClient.PostAsync(Links.CustomAlertsEndpoint, content, cancellationToken);
+                    _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-www-form-urlencoded"));
+                    var requestData = new Dictionary<string, string>
+                    {
+                        { "external_id", request.External_id },
+                        { "header", request.Header },
+                        { "message", request.Message },
+                        { "is_show", request.Is_show.ToString() },
+                        { "image_url", request.Image_url },
+                        { "sound_url", request.Sound_url }
+                    };
+                    var content = new FormUrlEncodedContent(requestData);
+                    var response = await _httpClient.PostAsync(Links.CustomAlertsEndpoint, content, cancellationToken);
 
-                if (response.IsSuccessStatusCode)
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        var customAlertResponse = JsonConvert.DeserializeObject<CustomAlertsResponseWrap>(responseContent);
+                        logger?.Log($"Custom alert posted: {customAlertResponse?.Data}");
+                        return customAlertResponse;
+                    }
+                }
+                catch (Exception ex)
                 {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    var customAlertResponse = JsonConvert.DeserializeObject<CustomAlertsResponseWrap>(responseContent);
-                    logger?.Log($"Custom alert posted: {customAlertResponse?.Data}");
-                    return customAlertResponse;
+                    logger?.Log($"Error while posting custom alert: {ex.Message}", LogLevel.Error);
                 }
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                logger?.Log($"Error while posting custom alert: {ex.Message}", LogLevel.Error);
-            } 
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
+            }
             return null;
         }
         public async Task<CreateMerchandiseResponseWrap?> CreateMerchandiseAsync(CreateMerchandiseRequest request, CancellationToken cancellationToken)
         {
-            using (var formContent = new MultipartFormDataContent())
+            try
             {
-                formContent.Add(new StringContent(request.Merchant_identifier), "merchant_identifier");
-                formContent.Add(new StringContent(request.Merchandise_identifier), "merchandise_identifier"); 
-                foreach (var title in request.Title) formContent.Add(new StringContent(title.Value), $"title[{title.Key}]");
-                formContent.Add(new StringContent(request.Is_active.ToString()), "is_active");
-                formContent.Add(new StringContent(request.Is_percentage.ToString()), "is_percentage");
-                formContent.Add(new StringContent(request.Currency.ToString()), "currency");
-                formContent.Add(new StringContent(request.Price_user.ToString()), "price_user");
-                formContent.Add(new StringContent(request.Price_service.ToString()), "price_service");
-                formContent.Add(new StringContent(request.Url), "url");
-                formContent.Add(new StringContent(request.Img_url), "img_url");
-                formContent.Add(new StringContent(request.Signature), "signature");
-
-                var response = await _httpClient.PostAsync(Links.MerchandiseEndpoint, formContent, cancellationToken);
-
-                if (response.IsSuccessStatusCode)
+                cancellationToken.ThrowIfCancellationRequested();
+                using (var formContent = new MultipartFormDataContent())
                 {
-                    string content = await response.Content.ReadAsStringAsync();
-                    return JsonConvert.DeserializeObject<CreateMerchandiseResponseWrap>(content);
-                }
-                else
-                {
-                    logger?.Log($"Error from {nameof(CreateMerchandiseAsync)} : {response.StatusCode}, {await response.Content.ReadAsStringAsync()}", LogLevel.Error);
-                    return null;
+                    formContent.Add(new StringContent(request.Merchant_identifier), "merchant_identifier");
+                    formContent.Add(new StringContent(request.Merchandise_identifier), "merchandise_identifier"); 
+                    foreach (var title in request.Title) formContent.Add(new StringContent(title.Value), $"title[{title.Key}]");
+                    formContent.Add(new StringContent(request.Is_active.ToString()), "is_active");
+                    formContent.Add(new StringContent(request.Is_percentage.ToString()), "is_percentage");
+                    formContent.Add(new StringContent(request.Currency.ToString()), "currency");
+                    formContent.Add(new StringContent(request.Price_user.ToString()), "price_user");
+                    formContent.Add(new StringContent(request.Price_service.ToString()), "price_service");
+                    formContent.Add(new StringContent(request.Url), "url");
+                    formContent.Add(new StringContent(request.Img_url), "img_url");
+                    formContent.Add(new StringContent(request.Signature), "signature");
+
+                    var response = await _httpClient.PostAsync(Links.MerchandiseEndpoint, formContent, cancellationToken);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string content = await response.Content.ReadAsStringAsync();
+                        return JsonConvert.DeserializeObject<CreateMerchandiseResponseWrap>(content);
+                    }
+                    else
+                    {
+                        logger?.Log($"Error from {nameof(CreateMerchandiseAsync)} : {response.StatusCode}, {await response.Content.ReadAsStringAsync()}", LogLevel.Error);
+                    }
                 }
             }
+            catch (OperationCanceledException)
+            {
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
+            }
+            return null;
         }
         public async Task<UpdateMerchandiseResponseWrap?> UpdateMerchandiseAsync(UpdateMerchandiseRequest request, int merchandiseId, CancellationToken cancellationToken)
         {
-            var titleContent = request.Title.Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value));
-            var content = new FormUrlEncodedContent(titleContent.Concat(new[]
-            { 
-                new KeyValuePair<string, string>("is_active", request.IsActive.ToString()),
-                new KeyValuePair<string, string>("is_percentage", request.IsPercentage.ToString()),
-                new KeyValuePair<string, string>("currency", request.Currency.ToString()),
-                new KeyValuePair<string, string>("price_user", request.PriceUser.ToString(CultureInfo.InvariantCulture)),
-                new KeyValuePair<string, string>("price_service", request.PriceService.ToString(CultureInfo.InvariantCulture)),
-                new KeyValuePair<string, string>("url", request.Url),
-                new KeyValuePair<string, string>("img_url", request.ImgUrl),
-                new KeyValuePair<string, string>("signature", request.Signature)
-            }));
-
-            var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchandiseId}", content, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
-                return null;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                var titleContent = request.Title.Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value));
+                var content = new FormUrlEncodedContent(titleContent.Concat(new[]
+                { 
+                    new KeyValuePair<string, string>("is_active", request.IsActive.ToString()),
+                    new KeyValuePair<string, string>("is_percentage", request.IsPercentage.ToString()),
+                    new KeyValuePair<string, string>("currency", request.Currency.ToString()),
+                    new KeyValuePair<string, string>("price_user", request.PriceUser.ToString(CultureInfo.InvariantCulture)),
+                    new KeyValuePair<string, string>("price_service", request.PriceService.ToString(CultureInfo.InvariantCulture)),
+                    new KeyValuePair<string, string>("url", request.Url),
+                    new KeyValuePair<string, string>("img_url", request.ImgUrl),
+                    new KeyValuePair<string, string>("signature", request.Signature)
+                }));
 
-            var responseContent = await response.Content.ReadAsStringAsync();
-            return JsonConvert.DeserializeObject<UpdateMerchandiseResponseWrap>(responseContent);
+                var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchandiseId}", content, cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
+                    return null;
+                }
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<UpdateMerchandiseResponseWrap>(responseContent);
+            }
+            catch (OperationCanceledException)
+            {
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
+            }
+            return null;
         }
         public async Task<CreateOrUpdateMerchandiseResponseWrap?> CreateOrUpdateMerchandiseAsync(CreateOrUpdateMerchandiseRequest request, string merchantIdentifier, string merchandiseIdentifier, CancellationToken cancellationToken)
         {
-            IEnumerable<KeyValuePair<string, string>> titleContent = 
-                request.Title
-                .Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value));
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                IEnumerable<KeyValuePair<string, string>> titleContent = 
+                    request.Title
+                    .Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value));
 
-            using (var content = new FormUrlEncodedContent(titleContent.Concat(new[]
-            {
-                new KeyValuePair<string, string>("is_active", request.IsActive.ToString()),
-                new KeyValuePair<string, string>("is_percentage", request.IsPercentage.ToString()),
-                new KeyValuePair<string, string>("currency", request.Currency.ToString()),
-                new KeyValuePair<string, string>("price_user", request.PriceUser.ToString(CultureInfo.InvariantCulture)),
-                new KeyValuePair<string, string>("price_service", request.PriceService.ToString(CultureInfo.InvariantCulture)),
-                new KeyValuePair<string, string>("url", request.Url),
-                new KeyValuePair<string, string>("img_url", request.ImgUrl),
-                new KeyValuePair<string, string>("end_at_ts", request.EndAtTs?.ToString() ?? string.Empty),
-                new KeyValuePair<string, string>("signature", request.Signature)
-            })))
-            {
-                var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchantIdentifier}/{merchandiseIdentifier}", content, cancellationToken);
-                if (!response.IsSuccessStatusCode)
+                using (var content = new FormUrlEncodedContent(titleContent.Concat(new[]
                 {
-                    logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
-                    return null;
+                    new KeyValuePair<string, string>("is_active", request.IsActive.ToString()),
+                    new KeyValuePair<string, string>("is_percentage", request.IsPercentage.ToString()),
+                    new KeyValuePair<string, string>("currency", request.Currency.ToString()),
+                    new KeyValuePair<string, string>("price_user", request.PriceUser.ToString(CultureInfo.InvariantCulture)),
+                    new KeyValuePair<string, string>("price_service", request.PriceService.ToString(CultureInfo.InvariantCulture)),
+                    new KeyValuePair<string, string>("url", request.Url),
+                    new KeyValuePair<string, string>("img_url", request.ImgUrl),
+                    new KeyValuePair<string, string>("end_at_ts", request.EndAtTs?.ToString() ?? string.Empty),
+                    new KeyValuePair<string, string>("signature", request.Signature)
+                })))
+                {
+                    var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchantIdentifier}/{merchandiseIdentifier}", content, cancellationToken);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
+                        return null;
+                    }
+
+                    var jsonString = await response.Content.ReadAsStringAsync();
+                    var result = JsonConvert.DeserializeObject<CreateOrUpdateMerchandiseResponseWrap>(jsonString);
+
+                    return result; 
                 }
-
-                var jsonString = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<CreateOrUpdateMerchandiseResponseWrap>(jsonString);
-
-                return result; 
             }
-
-            
+            catch (OperationCanceledException)
+            {
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
+            } 
+            return null;
         }
         public async Task<CreateMerchandiseSaleNotificationResponseWrap?> CreateMerchandiseSaleNotificationAsync(CreateMerchandiseSaleNotificationRequest request, string bearerToken, CancellationToken cancellationToken)
         {
-            using (var content = new FormUrlEncodedContent(new[]
+            try
             {
-                new KeyValuePair<string, string>("user_id", request.UserId.ToString()),
-                new KeyValuePair<string, string>("external_id", request.ExternalId),
-                new KeyValuePair<string, string>("merchant_identifier", request.MerchantIdentifier),
-                new KeyValuePair<string, string>("merchandise_identifier", request.MerchandiseIdentifier),
-                new KeyValuePair<string, string>("amount", request.Amount.ToString(CultureInfo.InvariantCulture)),
-                new KeyValuePair<string, string>("currency", request.Currency.ToString()),
-                new KeyValuePair<string, string>("bought_amount", request.BoughtAmount.ToString()),
-                new KeyValuePair<string, string>("username", request.Username),
-                new KeyValuePair<string, string>("message", request.Message),
-                new KeyValuePair<string, string>("signature", request.Signature)
-            }))
-            {
-
-                var response = await _httpClient.PostAsync(Links.MerchandiseSaleEndpoint, content, cancellationToken);
-                if (!response.IsSuccessStatusCode)
+                cancellationToken.ThrowIfCancellationRequested();
+                using (var content = new FormUrlEncodedContent(new[]
                 {
-                    logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
-                    return null;
-                }
+                    new KeyValuePair<string, string>("user_id", request.UserId.ToString()),
+                    new KeyValuePair<string, string>("external_id", request.ExternalId),
+                    new KeyValuePair<string, string>("merchant_identifier", request.MerchantIdentifier),
+                    new KeyValuePair<string, string>("merchandise_identifier", request.MerchandiseIdentifier),
+                    new KeyValuePair<string, string>("amount", request.Amount.ToString(CultureInfo.InvariantCulture)),
+                    new KeyValuePair<string, string>("currency", request.Currency.ToString()),
+                    new KeyValuePair<string, string>("bought_amount", request.BoughtAmount.ToString()),
+                    new KeyValuePair<string, string>("username", request.Username),
+                    new KeyValuePair<string, string>("message", request.Message),
+                    new KeyValuePair<string, string>("signature", request.Signature)
+                }))
+                {
 
-                var jsonString = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<CreateMerchandiseSaleNotificationResponseWrap>(jsonString);
+                    var response = await _httpClient.PostAsync(Links.MerchandiseSaleEndpoint, content, cancellationToken);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
+                        return null;
+                    }
 
-                return result;
-            } 
+                    var jsonString = await response.Content.ReadAsStringAsync();
+                    var result = JsonConvert.DeserializeObject<CreateMerchandiseSaleNotificationResponseWrap>(jsonString);
+
+                    return result;
+                } 
+            }
+            catch (OperationCanceledException)
+            {
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
+            }
+            return null;
         }
 
         public void Dispose()

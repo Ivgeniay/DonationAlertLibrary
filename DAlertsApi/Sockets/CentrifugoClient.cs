@@ -33,47 +33,57 @@ namespace DAlertsApi.Sockets
         /// <returns></returns>
         public async Task<bool> ConnectAsync(string token, int id, CancellationToken cancellationToken)
         {
-            int attempt = 0;
-            while (attempt < MaxRetryAttempts)
+            try
             {
-                attempt++;
-                try
-                {
-                    // Открываем WebSocket соединение
-                    await _webSocket.ConnectAsync(new Uri(Links.CentrifugoSocketEndpoint), cancellationToken);
-                    logger?.Log($"Connected to Centrifugo WebSocket server on attempt {attempt}.");
+                cancellationToken.ThrowIfCancellationRequested(); 
 
-                    CentrifugoRequest centrifugoRequest = new()
+                int attempt = 0;
+                while (attempt < MaxRetryAttempts)
+                {
+                    attempt++;
+                    try
                     {
-                        Params = new()
+                        // Открываем WebSocket соединение
+                        await _webSocket.ConnectAsync(new Uri(Links.CentrifugoSocketEndpoint), cancellationToken);
+                        logger?.Log($"Connected to Centrifugo WebSocket server on attempt {attempt}.");
+
+                        CentrifugoRequest centrifugoRequest = new()
                         {
-                            Token = token
-                        },
-                        Id = id
-                    };
-                    string jsonMessage = JsonConvert.SerializeObject(centrifugoRequest);
-                    logger?.Log($"Sending authentication message: {jsonMessage}");
-                    var bytes = Encoding.UTF8.GetBytes(jsonMessage);
+                            Params = new()
+                            {
+                                Token = token
+                            },
+                            Id = id
+                        };
+                        string jsonMessage = JsonConvert.SerializeObject(centrifugoRequest);
+                        logger?.Log($"Sending authentication message: {jsonMessage}");
+                        var bytes = Encoding.UTF8.GetBytes(jsonMessage);
 
-                    await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
-                    logger?.Log("Sent authentication message.");
-                    return true;
-                }
-                catch (WebSocketException ex)
-                {
-                    logger?.Log($"WebSocketException on attempt {attempt}: {ex.Message}", LogLevel.Error);
-                }
-                catch (Exception ex)
-                {
-                    logger?.Log($"Exception on attempt {attempt}: {ex.Message}", LogLevel.Error);
+                        await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
+                        logger?.Log("Sent authentication message.");
+                        return true;
+                    }
+                    catch (WebSocketException ex)
+                    {
+                        logger?.Log($"WebSocketException on attempt {attempt}: {ex.Message}", LogLevel.Error);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.Log($"Exception on attempt {attempt}: {ex.Message}", LogLevel.Error);
+                    }
+
+                    logger?.Log($"Retrying connection in {RetryDelayMilliseconds}ms...", LogLevel.Warning);
+                    await Task.Delay(RetryDelayMilliseconds);
                 }
 
-                logger?.Log($"Retrying connection in {RetryDelayMilliseconds}ms...", LogLevel.Warning);
-                await Task.Delay(RetryDelayMilliseconds);
+                logger?.Log("Failed to connect to Centrifugo after maximum retry attempts.", LogLevel.Error);
+                return false; // Подключение не удалось
             }
-
-            logger?.Log("Failed to connect to Centrifugo after maximum retry attempts.", LogLevel.Error);
-            return false; // Подключение не удалось
+            catch (OperationCanceledException)
+            {
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
+                return false;
+            }
         }
         /// <summary>
         /// Second step of connection to Centrifugo WebSocket server. Receives Client ID from the server.
@@ -81,31 +91,41 @@ namespace DAlertsApi.Sockets
         /// <returns></returns>
         public async Task<CentrifugoResponse?> ReceiveClientIdAsync(CancellationToken cancellationToken)
         {
-            var buffer = new byte[2048]; // Увеличенный размер буфера
             try
             {
-                var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                if (result.MessageType == WebSocketMessageType.Close)
+                var buffer = new byte[2048]; // Увеличенный размер буфера
+                try
                 {
-                    logger?.Log($"WebSocket closed with status {result.CloseStatus} and description {result.CloseStatusDescription}", LogLevel.Error);
+                    var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        logger?.Log($"WebSocket closed with status {result.CloseStatus} and description {result.CloseStatusDescription}", LogLevel.Error);
+                        return null;
+                    }
+
+                    var responseJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    if (string.IsNullOrWhiteSpace(responseJson))
+                    {
+                        logger?.Log("Received empty response. Possible error in the communication.", LogLevel.Error);
+                        return null;
+                    }
+
+                    CentrifugoResponse? response = JsonConvert.DeserializeObject<CentrifugoResponse>(responseJson);
+                    logger?.Log("Deserialized response: " + responseJson);
+                    return response;
+                }
+                catch (Exception ex)
+                {
+                    logger?.Log("Error receiving WebSocket message: " + ex.Message, LogLevel.Error);
                     return null;
                 }
-
-                var responseJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                if (string.IsNullOrWhiteSpace(responseJson))
-                {
-                    logger?.Log("Received empty response. Possible error in the communication.", LogLevel.Error);
-                    return null;
-                }
-
-                CentrifugoResponse? response = JsonConvert.DeserializeObject<CentrifugoResponse>(responseJson);
-                logger?.Log("Deserialized response: " + responseJson);
-                return response;
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                logger?.Log("Error receiving WebSocket message: " + ex.Message, LogLevel.Error);
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
                 return null;
             }
         }
@@ -119,6 +139,8 @@ namespace DAlertsApi.Sockets
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 using (var httpClient = new HttpClient())
                 {
                     httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
@@ -155,6 +177,7 @@ namespace DAlertsApi.Sockets
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var request = new
                 {
                     @params = new
@@ -233,44 +256,51 @@ namespace DAlertsApi.Sockets
         /// <returns></returns>
         public async Task ListenForMessagesAsync(CancellationToken cancellationToken)
         {
-            var buffer = new byte[1024 * 4];
-
-            while (_webSocket.State == WebSocketState.Open)
+            try
             {
-                try
+                cancellationToken.ThrowIfCancellationRequested();
+                var buffer = new byte[1024 * 4]; 
+                while (_webSocket.State == WebSocketState.Open)
                 {
-                    var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
-                    if (result.MessageType == WebSocketMessageType.Close)
+                    try
                     {
-                        logger?.Log("WebSocket connection closed by the server.");
-                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, cancellationToken);
-                        break;
-                    }
-                    else if (result.MessageType != WebSocketMessageType.Text)
-                    {
-                        logger?.Log("Received non-text message, ignoring.");
-                        continue;
-                    }
-                    else
-                    {
-                        var responseJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        logger?.Log("Received WebSocket message: " + responseJson);
-                        var wsMessage = JsonConvert.DeserializeObject<WebSocketMessage>(responseJson);
-                        if (wsMessage == null)
+                        var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                        if (result.MessageType == WebSocketMessageType.Close)
                         {
-                            logger?.Log("Received null message, ignoring.");
+                            logger?.Log("WebSocket connection closed by the server.");
+                            await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, cancellationToken);
+                            break;
+                        }
+                        else if (result.MessageType != WebSocketMessageType.Text)
+                        {
+                            logger?.Log("Received non-text message, ignoring.");
                             continue;
                         }
                         else
                         {
-                            HandleMessage(wsMessage);
+                            var responseJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                            logger?.Log("Received WebSocket message: " + responseJson);
+                            var wsMessage = JsonConvert.DeserializeObject<WebSocketMessage>(responseJson);
+                            if (wsMessage == null)
+                            {
+                                logger?.Log("Received null message, ignoring.");
+                                continue;
+                            }
+                            else
+                            {
+                                HandleMessage(wsMessage);
+                            }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        logger?.Log("Error while receiving WebSocket message: " + ex.Message, LogLevel.Error);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    logger?.Log("Error while receiving WebSocket message: " + ex.Message, LogLevel.Error);
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                logger?.Log("Operation was cancelled.", LogLevel.Warning);
             }
         }
         private void HandleMessage(WebSocketMessage wsMessage)
