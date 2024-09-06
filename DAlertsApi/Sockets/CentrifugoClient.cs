@@ -6,6 +6,7 @@ using DAlertsApi.Logger;
 using DAlertsApi.Models;
 using Newtonsoft.Json; 
 using System.Text;
+using System.Threading;
 
 namespace DAlertsApi.Sockets
 {
@@ -30,7 +31,7 @@ namespace DAlertsApi.Sockets
         /// </summary>
         /// <param name="token"></param>
         /// <returns></returns>
-        public async Task<bool> ConnectAsync(string token, int id)
+        public async Task<bool> ConnectAsync(string token, int id, CancellationToken cancellationToken)
         {
             int attempt = 0;
             while (attempt < MaxRetryAttempts)
@@ -39,7 +40,7 @@ namespace DAlertsApi.Sockets
                 try
                 {
                     // Открываем WebSocket соединение
-                    await _webSocket.ConnectAsync(new Uri(Links.CentrifugoSocketEndpoint), CancellationToken.None);
+                    await _webSocket.ConnectAsync(new Uri(Links.CentrifugoSocketEndpoint), cancellationToken);
                     logger?.Log($"Connected to Centrifugo WebSocket server on attempt {attempt}.");
 
                     CentrifugoRequest centrifugoRequest = new()
@@ -54,7 +55,7 @@ namespace DAlertsApi.Sockets
                     logger?.Log($"Sending authentication message: {jsonMessage}");
                     var bytes = Encoding.UTF8.GetBytes(jsonMessage);
 
-                    await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+                    await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
                     logger?.Log("Sent authentication message.");
                     return true;
                 }
@@ -78,12 +79,12 @@ namespace DAlertsApi.Sockets
         /// Second step of connection to Centrifugo WebSocket server. Receives Client ID from the server.
         /// </summary>
         /// <returns></returns>
-        public async Task<CentrifugoResponse?> ReceiveClientIdAsync()
+        public async Task<CentrifugoResponse?> ReceiveClientIdAsync(CancellationToken cancellationToken)
         {
             var buffer = new byte[2048]; // Увеличенный размер буфера
             try
             {
-                var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
@@ -114,7 +115,7 @@ namespace DAlertsApi.Sockets
         /// <param name="uuidv4_client_id"></param>
         /// <param name="channels"></param>
         /// <returns></returns>
-        public async Task<SubscriptionResponse?> SubscribeToChannelsAsync(SubscriptionRequest request, string bearerToken)
+        public async Task<SubscriptionResponse?> SubscribeToChannelsAsync(SubscriptionRequest request, string bearerToken, CancellationToken cancellationToken)
         {
             try
             {
@@ -125,7 +126,7 @@ namespace DAlertsApi.Sockets
                     jsonContent = jsonContent.ToLower();
                     logger?.Log("Sending subscription request: " + jsonContent);
                     var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-                    var response = await httpClient.PostAsync(Links.CentrifugoPrivateSubscribe, content);
+                    var response = await httpClient.PostAsync(Links.CentrifugoPrivateSubscribe, content, cancellationToken);
                     response.EnsureSuccessStatusCode();
 
                     string responseJson = await response.Content.ReadAsStringAsync();
@@ -178,7 +179,7 @@ namespace DAlertsApi.Sockets
 
                 // Получаем ответ от сервера
                 var responseBuffer = new byte[1024 * 4];
-                var firstResponse = await _webSocket.ReceiveAsync(new ArraySegment<byte>(responseBuffer), CancellationToken.None);
+                var firstResponse = await _webSocket.ReceiveAsync(new ArraySegment<byte>(responseBuffer), cancellationToken);
                 var firstResponseJson = Encoding.UTF8.GetString(responseBuffer, 0, firstResponse.Count);
                 CoonectToChannelFirstMessage? response = JsonConvert.DeserializeObject<CoonectToChannelFirstMessage>(firstResponseJson);
                 if (response == null)

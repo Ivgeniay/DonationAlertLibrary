@@ -12,6 +12,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace DAlertsApi.ApiV1lib
 {
@@ -40,11 +41,11 @@ namespace DAlertsApi.ApiV1lib
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
         }
 
-        public async Task<UserWrap?> GetUserProfileAsync()
+        public async Task<UserWrap?> GetUserProfileAsync(CancellationToken cancellationToken)
         {
             try
             {
-                var response = await _httpClient.GetAsync(Links.UserOauthEndpoint); 
+                var response = await _httpClient.GetAsync(Links.UserOauthEndpoint, cancellationToken); 
                 if (response.IsSuccessStatusCode)
                 {
                     string content = await response.Content.ReadAsStringAsync();
@@ -59,11 +60,11 @@ namespace DAlertsApi.ApiV1lib
             } 
             return null;
         }
-        public async Task<DonationWrap?> GetDonationsAsync()
+        public async Task<DonationWrap?> GetDonationsAsync(CancellationToken cancellationToken)
         {
             try
             {
-                var response = await _httpClient.GetAsync(Links.DonationAlertsListEndpoint); 
+                var response = await _httpClient.GetAsync(Links.DonationAlertsListEndpoint, cancellationToken); 
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
@@ -79,7 +80,7 @@ namespace DAlertsApi.ApiV1lib
 
             return null;
         }
-        public async Task<CustomAlertsResponseWrap?> PostCustomAlertAsync(CustomAlertsRequest request)
+        public async Task<CustomAlertsResponseWrap?> PostCustomAlertAsync(CustomAlertsRequest request, CancellationToken cancellationToken)
         {
             try
             {
@@ -96,7 +97,7 @@ namespace DAlertsApi.ApiV1lib
                     { "sound_url", request.Sound_url }
                 };
                 var content = new FormUrlEncodedContent(requestData);
-                var response = await _httpClient.PostAsync(Links.CustomAlertsEndpoint, content);
+                var response = await _httpClient.PostAsync(Links.CustomAlertsEndpoint, content, cancellationToken);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -112,7 +113,7 @@ namespace DAlertsApi.ApiV1lib
             } 
             return null;
         }
-        public async Task<CreateMerchandiseResponseWrap?> CreateMerchandiseAsync(CreateMerchandiseRequest request)
+        public async Task<CreateMerchandiseResponseWrap?> CreateMerchandiseAsync(CreateMerchandiseRequest request, CancellationToken cancellationToken)
         {
             using (var formContent = new MultipartFormDataContent())
             {
@@ -128,7 +129,7 @@ namespace DAlertsApi.ApiV1lib
                 formContent.Add(new StringContent(request.Img_url), "img_url");
                 formContent.Add(new StringContent(request.Signature), "signature");
 
-                var response = await _httpClient.PostAsync(Links.MerchandiseEndpoint, formContent);
+                var response = await _httpClient.PostAsync(Links.MerchandiseEndpoint, formContent, cancellationToken);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -142,7 +143,7 @@ namespace DAlertsApi.ApiV1lib
                 }
             }
         }
-        public async Task<UpdateMerchandiseResponseWrap?> UpdateMerchandiseAsync(UpdateMerchandiseRequest request, int merchandiseId)
+        public async Task<UpdateMerchandiseResponseWrap?> UpdateMerchandiseAsync(UpdateMerchandiseRequest request, int merchandiseId, CancellationToken cancellationToken)
         {
             var titleContent = request.Title.Select(t => new KeyValuePair<string, string>($"title[{t.Key}]", t.Value));
             var content = new FormUrlEncodedContent(titleContent.Concat(new[]
@@ -157,7 +158,7 @@ namespace DAlertsApi.ApiV1lib
                 new KeyValuePair<string, string>("signature", request.Signature)
             }));
 
-            var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchandiseId}", content);
+            var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchandiseId}", content, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -168,7 +169,7 @@ namespace DAlertsApi.ApiV1lib
             var responseContent = await response.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<UpdateMerchandiseResponseWrap>(responseContent);
         }
-        public async Task<CreateOrUpdateMerchandiseResponseWrap?> CreateOrUpdateMerchandiseAsync(CreateOrUpdateMerchandiseRequest request, string merchantIdentifier, string merchandiseIdentifier)
+        public async Task<CreateOrUpdateMerchandiseResponseWrap?> CreateOrUpdateMerchandiseAsync(CreateOrUpdateMerchandiseRequest request, string merchantIdentifier, string merchandiseIdentifier, CancellationToken cancellationToken)
         {
             IEnumerable<KeyValuePair<string, string>> titleContent = 
                 request.Title
@@ -187,7 +188,7 @@ namespace DAlertsApi.ApiV1lib
                 new KeyValuePair<string, string>("signature", request.Signature)
             })))
             {
-                var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchantIdentifier}/{merchandiseIdentifier}", content);
+                var response = await _httpClient.PutAsync($"{Links.MerchandiseEndpoint}/{merchantIdentifier}/{merchandiseIdentifier}", content, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
                     logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);
@@ -202,7 +203,7 @@ namespace DAlertsApi.ApiV1lib
 
             
         }
-        public async Task<CreateMerchandiseSaleNotificationResponseWrap?> CreateMerchandiseSaleNotificationAsync(CreateMerchandiseSaleNotificationRequest request, string bearerToken)
+        public async Task<CreateMerchandiseSaleNotificationResponseWrap?> CreateMerchandiseSaleNotificationAsync(CreateMerchandiseSaleNotificationRequest request, string bearerToken, CancellationToken cancellationToken)
         {
             using (var content = new FormUrlEncodedContent(new[]
             {
@@ -219,7 +220,7 @@ namespace DAlertsApi.ApiV1lib
             }))
             {
 
-                var response = await _httpClient.PostAsync(Links.MerchandiseSaleEndpoint, content);
+                var response = await _httpClient.PostAsync(Links.MerchandiseSaleEndpoint, content, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
                     logger?.Log($"Error: {response.StatusCode}", LogLevel.Error);

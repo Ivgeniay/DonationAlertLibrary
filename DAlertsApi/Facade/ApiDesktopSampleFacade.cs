@@ -55,7 +55,7 @@ namespace DAlertsApi.Facade
         public ApiDesktopSampleFacade(Credentials credentials) => this.credentials = credentials;
 
 
-        public async Task StartAsync()
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
             alertsAuth = new(credentials, logger);
             alertsAuth.OnAccessTokenGetted += (response) => OnAccessTokenGetted?.Invoke(response);
@@ -97,13 +97,13 @@ namespace DAlertsApi.Facade
             logger?.Log(accesTokenResponse?.ToString() ?? "null");
 
             ApiV1 apiV1 = new(accesTokenResponse.Access_token, logger);
-            UserWrap? userWrap = await apiV1.GetUserProfileAsync();
+            UserWrap? userWrap = await apiV1.GetUserProfileAsync(cancellationToken);
             if (userWrap == null)
             {
                 logger?.Log("Failed to get user profile.", LogLevel.Error);
                 return;
             }
-            DonationWrap? donation = await apiV1.GetDonationsAsync();
+            DonationWrap? donation = await apiV1.GetDonationsAsync(cancellationToken);
             logger?.Log(userWrap?.ToString() ?? "User is null");
             logger?.Log(donation?.ToString() ?? "Donation is null");
 
@@ -114,7 +114,7 @@ namespace DAlertsApi.Facade
             CentrifugoClientFacade.OnGoalUpdated += (goalsUpdateWrapper) => OnGoalUpdated?.Invoke(goalsUpdateWrapper);
             CentrifugoClientFacade.OnPollUpdated += (pollDataWrapper) => OnPollUpdated?.Invoke(pollDataWrapper);
             CentrifugoClientFacade.OnMessageReceived += (message) => OnMessageReceived?.Invoke(message);
-            await CentrifugoClientFacade.StartAsync();
+            await CentrifugoClientFacade.StartAsync(cancellationToken);
         }
     }
 }

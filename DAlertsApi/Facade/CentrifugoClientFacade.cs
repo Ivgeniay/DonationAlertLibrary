@@ -43,12 +43,12 @@ namespace DAlertsApi.Facade
             accessTokenResponse = accesTokenResponse;
         }
 
-        public async Task StartAsync()
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
-            bool isConnected = await centrifugoClient.ConnectAsync(userWrap.Socket_connection_token, userWrap.Id);
+            bool isConnected = await centrifugoClient.ConnectAsync(userWrap.Socket_connection_token, userWrap.Id, cancellationToken);
             if (isConnected)
             {
-                CentrifugoResponse? response = await centrifugoClient.ReceiveClientIdAsync();
+                CentrifugoResponse? response = await centrifugoClient.ReceiveClientIdAsync(cancellationToken);
                 if (response != null && !string.IsNullOrEmpty(response.Result?.Client))
                 {
                     logger?.Log($"Successfully authenticated with Client ID: {response.Result.Client}");
@@ -59,15 +59,14 @@ namespace DAlertsApi.Facade
                         Client = clientId,
                         Channels = channels.ToList()
                     };
-                    SubscriptionResponse? response1 = await centrifugoClient.SubscribeToChannelsAsync(subscribeRequest, accessTokenResponse.Access_token);
+                    SubscriptionResponse? response1 = await centrifugoClient.SubscribeToChannelsAsync(subscribeRequest, accessTokenResponse.Access_token, cancellationToken);
                     if (response1 != null)
                     {
                         logger?.Log($"Successfully subscribed to channels: {string.Join(", ", response1.Channels)}");
                         int messageId = 1;
                         int methodId = 1;
                         foreach (var channel in response1.Channels)
-                        {
-                            CancellationToken cancellationToken = CancellationToken.None;
+                        { 
                             bool isConnectedChannel = await centrifugoClient.ConnectToChannelAsync(channel.Channel, channel.Token, methodId, ++messageId, cancellationToken);
                             if (isConnectedChannel) { }
                         }

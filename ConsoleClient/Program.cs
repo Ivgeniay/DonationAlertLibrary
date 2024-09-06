@@ -34,8 +34,8 @@ namespace ConsoleClient
 
             });
             Credentials credentials = new(
-                clientId: 13330, 
-                clientSecret: "i416YiL9yVOuCYcxI8CpM6swcZXFK5Tsj5z3i5sX", 
+                clientId: 13342, 
+                clientSecret: "tyVtj3fyLmevKJo3BwhazFQGfgCDT2GcxBD6DyDM", 
                 redirect: "http://localhost",
                 port: "3180",
                 ScopeType.OauthDonationSubscribe,
@@ -52,7 +52,10 @@ namespace ConsoleClient
             apiFacade.OnGoalUpdated += (donation) => Console.WriteLine(donation.ToString()); 
             apiFacade.OnPollUpdated += (donation) => Console.WriteLine(donation.ToString());
 
-            apiFacade.StartAsync();
+            CancellationTokenSource tokenSource = new();
+            var token = tokenSource.Token;
+            apiFacade.StartAsync(token);
+
             Console.ReadKey();
         }
     }
