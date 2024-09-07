@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DAlertsApiStandart2.0\DAlertsApiStandart2.1.csproj" />
+    <ProjectReference Include="..\DAlertsApiStandart2.1\DAlertsApiStandart2.1.csproj" />
   </ItemGroup>
 
 </Project>

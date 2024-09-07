@@ -78,7 +78,14 @@ namespace DAlertsApi.Facade
                                 if (isConnectedChannel) { }
                             }
                             logger?.Log("Listening for messages...");
-                            await centrifugoClient.ListenForMessagesAsync(CancellationToken.None);
+                            try
+                            {
+                                await ListenCentrifugoWithRetryAsync(cancellationToken);
+                            }
+                            catch (Exception e)
+                            {
+                                logger?.Log($"Centrifugo connection was cancelled. {e}", LogLevel.Warning);
+                            }
                         }
                     }
                     else logger?.Log("Failed to authenticate with Centrifugo. (ReceiveClientId)", LogLevel.Error);
@@ -92,6 +99,29 @@ namespace DAlertsApi.Facade
         }
         public void UpdateAccessToken(RefreshTokenResponse refreshTokenResponse) =>        
             accessTokenResponse = accessTokenResponse.FromRefreshTokenResponseToAccessTokenResponse(refreshTokenResponse);
-        
+
+        public async Task ListenCentrifugoWithRetryAsync(CancellationToken cancellationToken, int maxRetries = 5, int reconnectionDelay = 2000)
+        {
+            int attempt = 0;
+            while (attempt < maxRetries)
+            {
+                try
+                { 
+                    await centrifugoClient.ListenForMessagesAsync(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    attempt++;
+                    logger?.Log($"Ошибка при прослушивании сообщений: {ex.Message}. Попытка {attempt} из {maxRetries}");
+                    if (attempt >= maxRetries)
+                    {
+                        logger?.Log("Достигнуто максимальное количество попыток. Прекращение работы.");
+                        throw;
+                    } 
+                    await Task.Delay(reconnectionDelay, cancellationToken);
+                }
+            }
+        }
+
     }
 }

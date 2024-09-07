@@ -1,7 +1,5 @@
 ﻿using DAlertsApi.Logger;
-using DAlertsApi.Models;
 using DAlertsApi.Models.Settings;
-using DAlertsApi.SystemFunc;
 
 namespace DAlertsApi.Auth
 {
